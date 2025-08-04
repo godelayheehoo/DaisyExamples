@@ -9,7 +9,7 @@ LIBDAISY_DIR = ../../libDaisy
 DAISYSP_DIR = ../../DaisySP
 
 # Sources
-CPP_SOURCES = KnobsAndButtons.cpp \
+CPP_SOURCES = JamesGlitchy.cpp \
     $(DAISYSP_DIR)/DaisySP-LGPL/Source/Effects/reverbsc.cpp
 
 # Core location, and generic Makefile.
