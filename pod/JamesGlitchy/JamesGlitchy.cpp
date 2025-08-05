@@ -40,11 +40,10 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer in,
             sprintf(buff, "Encoder:\t%d\tKnob1:\t%d\tMainTick: %d\tTrip: %d\r\n", encoder_total, (int)(r*1000), main_tick, (int)trip);
             hw.seed.usb_handle.TransmitInternal((uint8_t*)buff, strlen(buff));
         }
-        hw.led1.Set(r, 1-r, b); // Always update LED1 color based on knob value
-        // hw.led2.Set(b,b,b);
-        hw.led2.Set(fabs(encoder_total/360.0f), fabs(encoder_total/360.0f), fabs(encoder_total/360.0f)); // Update LED2 based on encoder position
-        hw.UpdateLeds();
     }
+    hw.led1.Set(r, 1-r, b); // Update LED1 color based on knob value (once per block)
+    hw.led2.Set(fabs(encoder_total/360.0f), fabs(encoder_total/360.0f), fabs(encoder_total/360.0f)); // Update LED2 based on encoder position (once per block)
+    hw.UpdateLeds();
 }
 
 int main(void)
@@ -53,7 +52,7 @@ int main(void)
     hw.seed.usb_handle.Init(UsbHandle::FS_INTERNAL);
 
     float sample_rate = hw.AudioSampleRate();
-    metro_tick.Init(.5f, sample_rate);
+    metro_tick.Init(2.0f, sample_rate);
 
     //blink the LED on startup to show the program is running.
     hw.led1.Set(0.0f, 0.0f, 1.0f); // Set LED 1 
