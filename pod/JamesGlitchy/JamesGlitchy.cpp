@@ -3,23 +3,23 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <cmath>   // for fabs
 #include "daisysp.h"
 
 using namespace daisy;
 using namespace daisysp;
 
 static DaisyPod hw;
-// static Parameter p_knob1, p_knob2;
+static Parameter p_knob1, p_knob2;
+Metro metro_tick;
+bool trip = false;
 
-
-// static void callback(AudioHandle::InterleavingInputBuffer  in,
-//                      AudioHandle::InterleavingOutputBuffer out,
-//                      size_t                                size)
-// {
-// }
-
-
+float r = 0.0, g = 0.0, b = 0.9;
 volatile int encoder_total = 0;
+int main_tick = 0;
+bool metro_val = false;
+char buff[128];
+
 
 static void AudioCallback(AudioHandle::InterleavingInputBuffer in,
                          AudioHandle::InterleavingOutputBuffer out,
@@ -28,29 +28,56 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer in,
     hw.encoder.Debounce();
     int inc = hw.encoder.Increment();
     encoder_total += inc;
+    encoder_total = encoder_total % 360; // Wrap around to keep within 0-359 degrees
+    hw.seed.SetLed(true); // Set the built-in LED to indicate activity
+    for(size_t i = 0; i < size; i++)
+    {
+        r = p_knob1.Process(); // Always update knob1 value
+        metro_val = metro_tick.Process();
+        if(metro_val){
+            trip = true;
+            main_tick += 1;
+            sprintf(buff, "Encoder:\t%d\tKnob1:\t%d\tMainTick: %d\tTrip: %d\r\n", encoder_total, (int)(r*1000), main_tick, (int)trip);
+            hw.seed.usb_handle.TransmitInternal((uint8_t*)buff, strlen(buff));
+        }
+        hw.led1.Set(r, 1-r, b); // Always update LED1 color based on knob value
+        // hw.led2.Set(b,b,b);
+        hw.led2.Set(fabs(encoder_total/360.0f), fabs(encoder_total/360.0f), fabs(encoder_total/360.0f)); // Update LED2 based on encoder position
+        hw.UpdateLeds();
+    }
 }
 
 int main(void)
 {
     hw.Init();
     hw.seed.usb_handle.Init(UsbHandle::FS_INTERNAL);
-    char buff[128];
-    hw.led1.Set(0.0f, 0.0f, 1.0f); // Set LED 1 to blue
+
+    float sample_rate = hw.AudioSampleRate();
+    metro_tick.Init(.5f, sample_rate);
+
+    //blink the LED on startup to show the program is running.
+    hw.led1.Set(0.0f, 0.0f, 1.0f); // Set LED 1 
+    hw.led2.Set(1.0f, 0.0f, 0.0f); // Set LED 2
+    System::Delay(2000);
+    hw.UpdateLeds();
+    System::Delay(2000);
+    hw.led1.Set(0.0f, 1.0f, 1.0f); // Set LED 1 
     hw.UpdateLeds();
     System::Delay(500);
-    hw.led1.Set(0.0f, 1.0f, 1.0f); // Set LED 1 to turquoise
-    hw.UpdateLeds();
-    System::Delay(500);
-    hw.led1.Set(1.0f, 0.0f, 1.0f); // Set LED 1 to purple
+    hw.led1.Set(0.0f, 1.0f, 0.0f); // Set LED 1     
     hw.UpdateLeds();
 
+
+    p_knob1.Init(hw.knob1, 0, 1, Parameter::LINEAR);
+
     hw.StartAudio(AudioCallback);
+    
+    hw.StartAdc();
+
 
     while(1)
     {
-        sprintf(buff, "Encoder:\t%d\r\n", encoder_total);
-        hw.seed.usb_handle.TransmitInternal((uint8_t*)buff, strlen(buff));
-        System::Delay(100);
+        // Main loop intentionally left empty to avoid blocking audio callback
     }
 }
 
