@@ -26,8 +26,8 @@ bool reverb_on = false;
 int stutter_offset = 0;
 
 // --- Stutter buffer globals ---
-constexpr size_t STUTTER_BUF_LEN = 24000; // 0.5s at 48kHz, ~192KB for stereo
-DSY_SDRAM_BSS float stutter_buf[2][STUTTER_BUF_LEN]; // stereo buffer
+constexpr size_t STUTTER_BUF_LEN = 8000; // 0.5s at 16kHz, ~64KB for stereo
+float stutter_buf[2][STUTTER_BUF_LEN]; // stereo buffer
 size_t stutter_write_pos = 0;
 size_t stutter_play_pos = 0;
 bool stutter_recording = true;
@@ -174,9 +174,9 @@ int main(void)
     hw.seed.usb_handle.Init(UsbHandle::FS_INTERNAL);
 #endif
 
-    // Set sample rate to default (48kHz)
-    sample_rate = 48000.0f;
-    hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
+    // Set sample rate to 16kHz for longer buffer
+    sample_rate = 16000.0f;
+    hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_16KHZ);
     metro_tick.Init(2.0f, sample_rate);
 
     // Init reverb
