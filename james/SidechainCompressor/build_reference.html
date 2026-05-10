@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stereo Sidechain Compressor — Build Reference</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #1a1a1a;
+    --bg3: #222;
+    --border: #2e2e2e;
+    --accent: #c8f135;
+    --accent2: #f13565;
+    --text: #e8e8e8;
+    --muted: #777;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.7;
+    padding: 48px 24px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 32px;
+    margin-bottom: 48px;
+  }
+
+  header .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  header h1 {
+    font-family: var(--mono);
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+
+  header .sub {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 48px 0 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin: 28px 0 12px;
+    padding-left: 12px;
+    border-left: 2px solid var(--accent2);
+  }
+
+  p {
+    font-size: 14px;
+    color: #ccc;
+    margin-bottom: 14px;
+    max-width: 680px;
+  }
+
+  ul {
+    list-style: none;
+    margin: 0 0 16px;
+  }
+
+  ul li {
+    font-size: 14px;
+    color: #ccc;
+    padding: 6px 0 6px 20px;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+    max-width: 680px;
+  }
+
+  ul li:last-child { border-bottom: none; }
+
+  ul li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 16px 0 24px;
+  }
+
+  th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: #ccc;
+    vertical-align: top;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  td:first-child {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  td:nth-child(2) {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  td:nth-child(3) {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .callout {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 13px;
+    color: #bbb;
+    max-width: 680px;
+  }
+
+  .callout.warn {
+    border-left-color: var(--accent2);
+  }
+
+  .component {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg3);
+    color: var(--accent);
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+
+  .pin {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent2);
+  }
+
+  .toc {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 20px 24px;
+    margin-bottom: 48px;
+    font-size: 13px;
+  }
+
+  .toc-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .toc a {
+    display: block;
+    color: #ccc;
+    text-decoration: none;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .toc a:last-child { border-bottom: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .toc a::before {
+    content: '→ ';
+    font-family: var(--mono);
+    color: var(--muted);
+  }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="label">Build Reference / v2</div>
+  <h1>Stereo Sidechain<br>Compressor</h1>
+  <div class="sub">Electrosmith Daisy Seed · Breadboard build · No SMD</div>
+</header>
+
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <a href="#what">What this is</a>
+  <a href="#signal">Signal flow</a>
+  <a href="#controls">Controls</a>
+  <a href="#wiring">Complete wiring summary</a>
+  <a href="#notes">Notes</a>
+</div>
+
+<!-- WHAT THIS IS -->
+<h2 id="what">What this is</h2>
+<p>A desktop stereo compressor with sidechain input, built around an Electrosmith Daisy Seed DSP module. A kick drum signal plugged into the sidechain input drives the compression envelope, causing the stereo audio signal to duck in time with the kick — the classic pumping effect. The unit also includes adjustable saturation with three character modes and a stereo width control.</p>
+<p>All signal processing happens in software on the Daisy Seed. The only analog circuitry required is a small input conditioning stage for the sidechain channel.</p>
+
+<!-- SIGNAL FLOW -->
+<h2 id="signal">Signal flow</h2>
+
+<h3>Stereo audio path</h3>
+<p>Left and right audio inputs connect directly to the Daisy Seed's audio codec pins. The Seed processes the stereo pair — applying gain reduction driven by the sidechain envelope, then saturation, then stereo width adjustment — and outputs on the left and right audio output pins. No external components needed in this path.</p>
+
+<h3>Sidechain path</h3>
+<p>The sidechain input cannot connect directly to the Seed's ADC pins, which expect 0–3.3V. The signal passes through a conditioning circuit built around a <span class="component">TL072</span> op-amp configured as a non-inverting amplifier with mid-rail biasing for single-supply operation:</p>
+<ul>
+  <li>A <span class="component">100nF</span> cap blocks any DC offset from the source device</li>
+  <li>Two <span class="component">100kΩ</span> resistors form a divider between 9V and GND, biasing pin 3 at 4.5V — required for correct single-supply operation</li>
+  <li>A <span class="component">10kΩ</span> resistor (Rg) from pin 2 to GND and a <span class="component">100kΩ</span> resistor (Rf) from pin 1 to pin 2 set the gain to approximately 11x</li>
+  <li>A second <span class="component">100nF</span> cap on the output (pin 1) blocks the 4.5V DC bias before the signal reaches the ADC pin</li>
+</ul>
+<p>In software, the Seed tracks the amplitude of this signal using an envelope follower, and uses that envelope as the control signal for the compressor on the stereo path.</p>
+
+<!-- CONTROLS -->
+<h2 id="controls">Controls</h2>
+<p>Eight potentiometers and one three-position toggle switch. Each pot: pin 1 to GND, pin 3 to <span class="pin">3V3_A</span>, wiper (pin 2) to the ADC pin.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Control</th>
+      <th>Daisy pin</th>
+      <th>Range</th>
+      <th>Function</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Threshold</td><td>A0 / D15</td><td>−60 to 0 dB</td><td>Level at which compression begins</td></tr>
+    <tr><td>Ratio</td><td>A1 / D16</td><td>1:1 to 20:1</td><td>How aggressively gain is reduced above threshold</td></tr>
+    <tr><td>Attack</td><td>A2 / D17</td><td>1ms to 300ms</td><td>How quickly compression engages after threshold is crossed</td></tr>
+    <tr><td>Release</td><td>A3 / D18</td><td>10ms to 1000ms</td><td>How quickly compression releases after signal falls below threshold</td></tr>
+    <tr><td>Mix</td><td>A4 / D19</td><td>0 to 100%</td><td>Blend between dry (uncompressed) and wet (compressed) signal</td></tr>
+    <tr><td>Drive</td><td>A5 / D20</td><td>0 to 100%</td><td>Amount of saturation applied after compression</td></tr>
+    <tr><td>Width</td><td>A6 / D21</td><td>0 to 200%</td><td>Stereo width. 100% = unchanged. Below narrows, above widens.</td></tr>
+    <tr><td>Output</td><td>A7 / D22</td><td>0 to 100%</td><td>Final output level trim</td></tr>
+  </tbody>
+</table>
+
+<p>The three-position toggle switch selects saturation character. Two signal legs connect to <span class="pin">D26</span> and <span class="pin">D27</span>. Configure both with internal pull-ups in firmware. The three positions select: soft clip (smooth, tape-like), hard clip (aggressive), or wavefold (complex, synth-like).</p>
+
+<!-- WIRING -->
+<h2 id="wiring">Complete wiring summary</h2>
+
+<h3>Audio input (stereo TRS)</h3>
+<p>One 1/4" TRS jack. Tip → <span class="pin">AUDIO IN L</span>. Ring → <span class="pin">AUDIO IN R</span>. Sleeve → GND.</p>
+
+<h3>Audio output (stereo TRS)</h3>
+<p>One 1/4" TRS jack. Tip → <span class="pin">AUDIO OUT L</span>. Ring → <span class="pin">AUDIO OUT R</span>. Sleeve → GND.</p>
+
+<h3>Sidechain input</h3>
+<p>One 1/4" TS jack. Full signal chain:</p>
+<ul>
+  <li>Jack tip → one leg of <span class="component">100nF</span> cap (DC blocking)</li>
+  <li>Other leg of cap → <span class="pin">pin 3</span> of TL072</li>
+  <li><span class="pin">Pin 3</span> also connects to the junction of two <span class="component">100kΩ</span> resistors in series between 9V and GND — this biases pin 3 at 4.5V (mid-rail)</li>
+  <li><span class="pin">Pin 2</span> → <span class="component">10kΩ</span> resistor → GND (this is Rg, sets gain)</li>
+  <li><span class="pin">Pin 1</span> → <span class="component">100kΩ</span> resistor → <span class="pin">pin 2</span> (this is Rf, feedback)</li>
+  <li><span class="pin">Pin 1</span> → <span class="component">100nF</span> cap → <span class="pin">A10 / D25</span> on Daisy Seed (DC blocking on output)</li>
+  <li><span class="pin">Pin 8</span> → 9V. <span class="pin">Pin 4</span> → GND</li>
+  <li>Jack sleeve → GND</li>
+</ul>
+
+<div class="callout">
+  Component summary: 2× 100nF ceramic cap, 2× 100kΩ resistor (bias divider), 1× 100kΩ resistor (Rf), 1× 10kΩ resistor (Rg), 1× TL072 DIP-8.
+</div>
+
+<h3>Potentiometers (all 8, wired identically)</h3>
+<ul>
+  <li>Pin 1 (left leg / fully CCW) → GND</li>
+  <li>Pin 2 (middle / wiper) → corresponding ADC pin per table above</li>
+  <li>Pin 3 (right leg / fully CW) → <span class="pin">3V3_A</span> on Daisy Seed</li>
+</ul>
+
+<h3>Saturation switch (3-position toggle)</h3>
+<ul>
+  <li>Common/center terminal → GND</li>
+  <li>Position 1 terminal → <span class="pin">D26</span></li>
+  <li>Position 2 terminal → <span class="pin">D27</span></li>
+  <li>Position 3 inferred in software when both D26 and D27 read low</li>
+  <li>Configure D26 and D27 with internal pull-ups in firmware</li>
+</ul>
+
+<h3>Sidechain activity LED</h3>
+<ul>
+  <li><span class="pin">D30</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
+  <li>LED cathode (short leg) → GND</li>
+  <li>LED pulses in time with kick drum when envelope follower exceeds threshold. Adjust <code>kLedThreshold</code> in firmware if needed.</li>
+</ul>
+
+<h3>Power</h3>
+<ul>
+  <li>Daisy Seed: powered via USB during development. For finished unit, use the VIN pin (accepts 4.5–17V) or regulated 5V on the 5V pin.</li>
+  <li>TL072: powered from 9V rail. <span class="pin">Pin 8</span> → 9V, <span class="pin">Pin 4</span> → GND.</li>
+  <li>Add <span class="component">100nF</span> decoupling cap between <span class="pin">3V3_A</span> and GND, close to the Seed.</li>
+  <li>Add <span class="component">100nF</span> decoupling cap across the TL072 supply pins (pin 8 to pin 4), close to the chip.</li>
+</ul>
+
+<!-- NOTES -->
+<h2 id="notes">Notes</h2>
+<ul>
+  <li>Use <span class="pin">3V3_A</span> (analog 3.3V), not the digital 3V3 pin, as the reference for pot wiring. The analog reference is isolated from digital switching noise.</li>
+  <li>Connect both AGND and DGND pins on the Seed to your ground rail.</li>
+  <li>The sidechain conditioning circuit is five passive components plus one op-amp. It fits on a small section of breadboard.</li>
+  <li>The mid-rail bias (two 100kΩ resistors to 4.5V) is required for single-supply operation of the TL072. Without it the output saturates to the supply rail.</li>
+  <li>The output coupling cap (second 100nF after pin 1) is required to strip the 4.5V DC bias before the signal reaches the Daisy ADC pin, which must stay within 0–3.3V.</li>
+  <li>If the source device (e.g. Pocket Operator) has low output level, reduce Rg to increase gain. Gain = 1 + (Rf / Rg). With Rf = 100kΩ and Rg = 2.2kΩ, gain ≈ 46x.</li>
+</ul>
+
+<footer>
+  Stereo Sidechain Compressor · Build Reference v2 · Daisy Seed / TL072 / No SMD
+</footer>
+
+</body>
+</html>

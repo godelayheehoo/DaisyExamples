@@ -1,38 +1,39 @@
 {
   "configurations": [
     {
-      "cStandard": "c11",
-      "compilerPath": "arm-none-eabi-g++.exe",
-      "cppStandard": "c++17",
-      "defines": [
-        "_DEBUG",
-        "UNICODE",
-        "_UNICODE"
-      ],
-      "includePath": [
-        "${workspaceFolder}/**",
-        "${workspaceFolder}/../../libDaisy//**",
-        "${workspaceFolder}/../../DaisySP//**"
-      ],
       "name": "Win32",
-      "windowsSdkVersion": "10.0.17763.0"
-    },
-    {
-      "cStandard": "c11",
-      "compilerPath": "/usr/local/bin/arm-none-eabi-g++",
-      "cppStandard": "c++17",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "${workspaceFolder}/../../libDaisy/src",
+        "${workspaceFolder}/../../libDaisy/src/dev",
+        "${workspaceFolder}/../../libDaisy/src/per",
+        "${workspaceFolder}/../../libDaisy/src/sys",
+        "${workspaceFolder}/../../libDaisy/src/util",
+        "${workspaceFolder}/../../DaisySP/Source",
+        "${workspaceFolder}/../../JamesClasses"
+      ],
       "defines": [
         "_DEBUG",
         "UNICODE",
-        "_UNICODE"
+        "_UNICODE",
+        "STM32H750xx",
+        "STM32H750IB"
       ],
-      "includePath": [
-        "${workspaceFolder}/**",
-        "${workspaceFolder}/../../libDaisy//**",
-        "${workspaceFolder}/../../DaisySP//**"
-      ],
-      "name": "macOS"
+      "compilerPath": "arm-none-eabi-g++.exe",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "gcc-arm",
+      "browse": {
+        "path": [
+          "${workspaceFolder}",
+          "${workspaceFolder}/../../libDaisy/src",
+          "${workspaceFolder}/../../DaisySP/Source",
+          "${workspaceFolder}/../../JamesClasses"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      }
     }
   ],
   "version": 4
 }
+

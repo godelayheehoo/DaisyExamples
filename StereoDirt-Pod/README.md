@@ -68,7 +68,7 @@ While holding down the Encoder button, the knobs take on secondary functions. Th
   - 🔴 **Red**: Hard Clip
   - 🟢 **Green**: Soft Clip (Overdrive)
   - 🔵 **Blue**: Foldover (Wavefolder)
-  - 🟣 **Purple**: Decimate (Bitcrush/Downsample)   
+  - 🟣 **Purple**: Decimate (Bitcrush/Downsample)
   - ⚫ **Off**: Distortion Bypassed
 - **Button 2 (Stereo Mode)**: Cycles through stereo widening modes. **LED 2** indicates the active mode:
   - 🧊 **Cyan**: Normal (Independent L/R)

@@ -1,5 +1,5 @@
 # Project Name
-TARGET = JamesImprovedGlitching
+TARGET = JamesTemplate
 
 # Use DaisySP-LGPL for this project
 USE_DAISYSP_LGPL = 1
@@ -9,9 +9,8 @@ LIBDAISY_DIR = ../../libDaisy
 DAISYSP_DIR = ../../DaisySP
 
 # Sources
-CPP_SOURCES = JamesImprovedGlitching.cpp \
-    $(DAISYSP_DIR)/DaisySP-LGPL/Source/Effects/reverbsc.cpp\
-    $(DAISYSP_DIR)/Source/Sampling/granularplayer.cpp
+CPP_SOURCES = JamesTemplate.cpp \
+    $(DAISYSP_DIR)/DaisySP-LGPL/Source/Effects/reverbsc.cpp
 
 # Core location, and generic Makefile.
 SYSTEM_FILES_DIR = $(LIBDAISY_DIR)/core
