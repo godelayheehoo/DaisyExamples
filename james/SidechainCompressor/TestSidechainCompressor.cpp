@@ -5,7 +5,7 @@
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-// #define DEBUG_LOG 1
+#define DEBUG_LOG 1
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardcoded parameter values — swap these for pot readings once wired up.
@@ -16,6 +16,14 @@ using namespace daisy;
 SidechainCompressor::SatMode current_sat_mode
     = SidechainCompressor::SatMode::kSoft;
 
+enum class FilterMode
+{
+    kLPF,
+    kBPF,
+    kHPF
+};
+volatile FilterMode current_filter_mode = FilterMode::kLPF;
+
 // LED fires when envelope follower exceeds this — tune if needed
 static constexpr float kLedThreshold = 0.15f;
 
@@ -25,16 +33,21 @@ static constexpr float kLedThreshold = 0.15f;
 //   Main stereo in  : Audio In  L/R  (built-in codec)
 //   Main stereo out : Audio Out L/R  (built-in codec)
 //   LED             : D30
+//   Bootloader entry: D8 (board pin 9, pull LOW at boot to enter bootloader)
 // ─────────────────────────────────────────────────────────────────────────────
 
 DaisySeed           hw;
 SidechainCompressor comp;
 dsy_gpio            led;
 dsy_gpio            sw_sat1, sw_sat2;
+dsy_gpio            filter_sw1, filter_sw2;
+
+daisysp::Svf sc_filter;
 
 enum AdcChannel
 {
     kScInput = 0,
+    kFilterCutoffPot,
     kThresholdPot,
     kRatioPot,
     kAttackPot,
@@ -46,11 +59,8 @@ enum AdcChannel
     kNumAdcChannels
 };
 
-// Envelope follower state and coefficients — persist across callbacks
-static float sc_env          = 0.0f;
-static float sc_attack_coef  = 0.0f;
-static float sc_release_coef = 0.0f;
-static float sample_rate     = 48000.0f;
+// State variables
+static float sample_rate = 48000.0f;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Audio callback
@@ -60,27 +70,30 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
                    size_t                    size)
 {
-    float sc_in = hw.adc.GetFloat(0); // A10 / D25, conditioned 0..1
-    // float sc_in = 0.0f;
+    float sc_in = hw.adc.GetFloat(kScInput); // A10 / D25, conditioned 0..1
+
+    // Apply sidechain filter
+    sc_filter.Process(sc_in);
+    switch(current_filter_mode)
+    {
+        case FilterMode::kLPF: sc_in = sc_filter.Low(); break;
+        case FilterMode::kBPF: sc_in = sc_filter.Band(); break;
+        case FilterMode::kHPF: sc_in = sc_filter.High(); break;
+    }
 
     for(size_t i = 0; i < size; i++)
     {
         float left  = in[0][i];
         float right = in[1][i];
 
-        // Envelope follower — tracks amplitude of sidechain signal
-        float rect = fabsf(sc_in);
-        float coef = rect > sc_env ? sc_attack_coef : sc_release_coef;
-        sc_env     = sc_env + coef * (rect - sc_env);
-
-        comp.Process(sc_env, &left, &right);
+        comp.Process(sc_in, &left, &right);
 
         out[0][i] = left;
         out[1][i] = right;
     }
 
-    // Update LED once per block — fast enough to look instantaneous
-    dsy_gpio_write(&led, sc_env > kLedThreshold ? 1 : 0);
+    // Update LED once per block using the compressor's internal envelope
+    dsy_gpio_write(&led, comp.GetEnvelope() > kLedThreshold ? 1 : 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,6 +103,19 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 int main(void)
 {
     hw.Init();
+
+    // ── Bootloader Entry ─────────────────────────────────────────────────────
+    // If D8 (Pin 9) is held LOW (button to GND) during startup, jump to bootloader.
+    dsy_gpio boot_sw;
+    boot_sw.pin  = hw.GetPin(8);
+    boot_sw.mode = DSY_GPIO_MODE_INPUT;
+    boot_sw.pull = DSY_GPIO_PULLUP;
+    dsy_gpio_init(&boot_sw);
+    hw.DelayMs(10);
+    if(!dsy_gpio_read(&boot_sw))
+    {
+        daisy::System::ResetToBootloader();
+    }
 
     // Flash built-in LED 4 times as soon as possible
     for(int i = 0; i < 4; i++)
@@ -105,17 +131,20 @@ int main(void)
     sample_rate = hw.AudioSampleRate();
 
     // ── Sidechain ADC init ────────────────────────────────────────────────────
-    // ── ADC init (Sidechain + 8 Pots) ────────────────────────────────────────
+    // ── ADC init (Sidechain + Cutoff + 8 Pots) ───────────────────────────────
+    // NOTE: Pin assignments for Cutoff, Width, and Output have been swapped
+    // to match physical wiring based on diagnostics.
     AdcChannelConfig adc_cfg[kNumAdcChannels];
     adc_cfg[kScInput].InitSingle(hw.GetPin(25)); // A10 / D25 = sidechain input
-    adc_cfg[kThresholdPot].InitSingle(hw.GetPin(15)); // A0  / D15
-    adc_cfg[kRatioPot].InitSingle(hw.GetPin(16));     // A1  / D16
-    adc_cfg[kAttackPot].InitSingle(hw.GetPin(17));    // A2  / D17
-    adc_cfg[kReleasePot].InitSingle(hw.GetPin(18));   // A3  / D18
-    adc_cfg[kMixPot].InitSingle(hw.GetPin(19));       // A4  / D19
-    adc_cfg[kDrivePot].InitSingle(hw.GetPin(20));     // A5  / D20
-    adc_cfg[kWidthPot].InitSingle(hw.GetPin(21));     // A6  / D21
-    adc_cfg[kOutputPot].InitSingle(hw.GetPin(22));    // A7  / D22
+    adc_cfg[kFilterCutoffPot].InitSingle(hw.GetPin(21)); // A6  / D21
+    adc_cfg[kThresholdPot].InitSingle(hw.GetPin(15));    // A0  / D15
+    adc_cfg[kRatioPot].InitSingle(hw.GetPin(16));        // A1  / D16
+    adc_cfg[kAttackPot].InitSingle(hw.GetPin(17));       // A2  / D17
+    adc_cfg[kReleasePot].InitSingle(hw.GetPin(18));      // A3  / D18
+    adc_cfg[kMixPot].InitSingle(hw.GetPin(19));          // A4  / D19
+    adc_cfg[kDrivePot].InitSingle(hw.GetPin(20));        // A5  / D20
+    adc_cfg[kWidthPot].InitSingle(hw.GetPin(22));        // A7  / D22
+    adc_cfg[kOutputPot].InitSingle(hw.GetPin(23));       // A8  / D23
 
     hw.adc.Init(adc_cfg, kNumAdcChannels);
     hw.adc.Start();
@@ -131,8 +160,29 @@ int main(void)
     sw_sat2.pull = DSY_GPIO_PULLUP;
     dsy_gpio_init(&sw_sat2);
 
+    // ── Filter switch init ───────────────────────────────────────────────────
+    filter_sw1.pin  = hw.GetPin(11);
+    filter_sw1.mode = DSY_GPIO_MODE_INPUT;
+    filter_sw1.pull = DSY_GPIO_PULLUP;
+    dsy_gpio_init(&filter_sw1);
+
+    filter_sw2.pin  = hw.GetPin(12);
+    filter_sw2.mode = DSY_GPIO_MODE_INPUT;
+    filter_sw2.pull = DSY_GPIO_PULLUP;
+    dsy_gpio_init(&filter_sw2);
+
+
     // ── Compressor init ────────────────────────────────────
     comp.Init(sample_rate);
+    comp.SetInputGain(
+        6.0f); // +6dB trim to bring line-level signals into a better range
+    comp.SetInputSaturation(
+        0.15f); // subtle input "color" saturation before compression
+
+    // ── Filter init ────────────────────────────────────────
+    sc_filter.Init(sample_rate);
+    sc_filter.SetFreq(1000.f);
+    sc_filter.SetRes(0.5f);
 
 #ifdef DEBUG_LOG
     hw.StartLog(false);
@@ -159,73 +209,93 @@ int main(void)
 
     while(true)
     {
-        // 1. Read Pots and Update Parameters
-        float thresh_val = hw.adc.GetFloat(kThresholdPot);
+        // 1. Read Filter Controls
+        // NOTE: all raw ADC readings are inverted (1.0f - val) to compensate
+        // for reversed GND/3.3V wiring on the potentiometers.
+        float cutoff_raw = 1.0f - hw.adc.GetFloat(kFilterCutoffPot);
+        float cutoff_hz  = 20.f * powf(1000.f, cutoff_raw);
+        sc_filter.SetFreq(cutoff_hz);
+
+        bool f1 = !dsy_gpio_read(&filter_sw1); // true if grounded
+        bool f2 = !dsy_gpio_read(&filter_sw2);
+
+        if(f1 && !f2)
+            current_filter_mode = FilterMode::kLPF;
+        else if(!f1 && f2)
+            current_filter_mode = FilterMode::kHPF;
+        else
+            current_filter_mode = FilterMode::kBPF;
+
+        // 2. Read Pots and Update Parameters
+        float thresh_val = 1.0f - hw.adc.GetFloat(kThresholdPot);
         float threshold  = -60.0f + (thresh_val * 60.0f); // -60 to 0 dB
         comp.SetThreshold(threshold);
 
-        float ratio_val = hw.adc.GetFloat(kRatioPot);
+        float ratio_val = 1.0f - hw.adc.GetFloat(kRatioPot);
         float ratio     = 1.0f + (ratio_val * 19.0f); // 1:1 to 20:1
         comp.SetRatio(ratio);
 
-        float atk_val   = hw.adc.GetFloat(kAttackPot);
+        float atk_val   = 1.0f - hw.adc.GetFloat(kAttackPot);
         float attack_ms = 1.0f + (atk_val * 299.0f); // 1ms to 300ms
         comp.SetAttack(attack_ms);
-        sc_attack_coef
-            = 1.0f - expf(-1.0f / (attack_ms * 0.001f * sample_rate));
 
-        float rel_val    = hw.adc.GetFloat(kReleasePot);
+        float rel_val    = 1.0f - hw.adc.GetFloat(kReleasePot);
         float release_ms = 10.0f + (rel_val * 990.0f); // 10ms to 1000ms
         comp.SetRelease(release_ms);
-        sc_release_coef
-            = 1.0f - expf(-1.0f / (release_ms * 0.001f * sample_rate));
 
-        float mix_val = hw.adc.GetFloat(kMixPot);
+        float mix_val = 1.0f - hw.adc.GetFloat(kMixPot);
         comp.SetMix(mix_val); // 0 to 1
 
-        float drive_val = hw.adc.GetFloat(kDrivePot);
+        float drive_val = 1.0f - hw.adc.GetFloat(kDrivePot);
         comp.SetSaturation(drive_val); // 0 to 1
 
-        float width_val = hw.adc.GetFloat(kWidthPot);
+        float width_val = 1.0f - hw.adc.GetFloat(kWidthPot);
         comp.SetStereoWidth(width_val * 2.0f); // 0 to 2.0 (200%)
 
-        float output_val = hw.adc.GetFloat(kOutputPot);
+        float output_val = 1.0f - hw.adc.GetFloat(kOutputPot);
         float makeup_db  = output_val * 24.0f; // 0 to 24 dB makeup
         comp.SetMakeupGain(makeup_db);
 
         // 2. Read Switch and Update Saturation Mode
-        // Based on build reference logic:
-        // - D26 low, D27 high -> Soft
-        // - D26 high, D27 low -> Hard
-        // - Both low -> Fold (Position 3)
-        bool s1 = !dsy_gpio_read(&sw_sat1); // true if pin is low
-        bool s2 = !dsy_gpio_read(&sw_sat2); // true if pin is low
+        // Logic for 3-pin On-Off-On toggle (Common to GND):
+        bool s1 = !dsy_gpio_read(&sw_sat1); // Position 1 (D26 Low)
+        bool s2 = !dsy_gpio_read(&sw_sat2); // Position 2 (D27 Low)
 
-        if(s1 && s2)
-        {
-            current_sat_mode = SidechainCompressor::SatMode::kFold;
-        }
-        else if(s2)
-        {
-            current_sat_mode = SidechainCompressor::SatMode::kHard;
-        }
-        else
-        {
+        if(s1 && !s2)
             current_sat_mode = SidechainCompressor::SatMode::kSoft;
-        }
-        comp.SetSatMode(current_sat_mode);
+        else if(!s1 && s2)
+            current_sat_mode = SidechainCompressor::SatMode::kHard;
+        else
+            current_sat_mode = SidechainCompressor::SatMode::
+                kFold; // Center position (Both High)
 
+        comp.SetSatMode(current_sat_mode);
 #ifdef DEBUG_LOG
-        if(sc_env > 0.01f) // only print when there's sidechain activity
-        {
-            hw.PrintLine("Thr: " FLT_FMT3 " | Rat: " FLT_FMT3
-                         " | Atk: " FLT_FMT3 " | Rel: " FLT_FMT3,
-                         FLT_VAR3(threshold),
-                         FLT_VAR3(ratio),
-                         FLT_VAR3(attack_ms),
-                         FLT_VAR3(release_ms));
-            hw.DelayMs(50);
-        }
+        const char* sat_str
+            = (current_sat_mode == SidechainCompressor::SatMode::kSoft) ? "SOFT"
+              : (current_sat_mode == SidechainCompressor::SatMode::kHard)
+                  ? "HARD"
+                  : "FOLD";
+        const char* filt_str = (current_filter_mode == FilterMode::kLPF) ? "LPF"
+                               : (current_filter_mode == FilterMode::kHPF)
+                                   ? "HPF"
+                                   : "BPF";
+
+        hw.PrintLine("T:" FLT_FMT3 " R:" FLT_FMT3 " A:" FLT_FMT3 " Re:" FLT_FMT3
+                     " M:" FLT_FMT3 " D:" FLT_FMT3 " W:" FLT_FMT3 " O:" FLT_FMT3
+                     " C:" FLT_FMT3 " Sat:%s Filt:%s",
+                     FLT_VAR3(threshold),
+                     FLT_VAR3(ratio),
+                     FLT_VAR3(attack_ms),
+                     FLT_VAR3(release_ms),
+                     FLT_VAR3(mix_val),
+                     FLT_VAR3(drive_val),
+                     FLT_VAR3(width_val),
+                     FLT_VAR3(makeup_db),
+                     FLT_VAR3(cutoff_hz),
+                     sat_str,
+                     filt_str);
+        hw.DelayMs(250);
 #endif
     }
 }

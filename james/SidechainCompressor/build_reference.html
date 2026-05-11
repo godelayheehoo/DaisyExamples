@@ -251,6 +251,7 @@
   <a href="#signal">Signal flow</a>
   <a href="#controls">Controls</a>
   <a href="#wiring">Complete wiring summary</a>
+  <a href="#boot">Bootloader entry button</a>
   <a href="#notes">Notes</a>
 </div>
 
@@ -295,8 +296,11 @@
     <tr><td>Release</td><td>A3 / D18</td><td>10ms to 1000ms</td><td>How quickly compression releases after signal falls below threshold</td></tr>
     <tr><td>Mix</td><td>A4 / D19</td><td>0 to 100%</td><td>Blend between dry (uncompressed) and wet (compressed) signal</td></tr>
     <tr><td>Drive</td><td>A5 / D20</td><td>0 to 100%</td><td>Amount of saturation applied after compression</td></tr>
-    <tr><td>Width</td><td>A6 / D21</td><td>0 to 200%</td><td>Stereo width. 100% = unchanged. Below narrows, above widens.</td></tr>
-    <tr><td>Output</td><td>A7 / D22</td><td>0 to 100%</td><td>Final output level trim</td></tr>
+    <tr><td>Width</td><td>A7 / D22</td><td>0 to 200%</td><td>Stereo width. 100% = unchanged. Below narrows, above widens.</td></tr>
+    <tr><td>Output</td><td>A8 / D23</td><td>0 to 100%</td><td>Final output level trim</td></tr>
+    <tr><td>SC Filter Cutoff</td><td>A6 / D21</td><td>20Hz to 20kHz</td><td>Cutoff frequency of the sidechain filter</td></tr>
+    <tr><td>SC Filter Type</td><td>D11 + D12</td><td>LPF / BPF / HPF</td><td>Filter mode applied to sidechain signal. Center position = BPF.</td></tr>
+    <tr><td>Bootloader Entry</td><td>D8</td><td>Logic Low</td><td>Hold at boot to enter bootloader mode</td></tr>
   </tbody>
 </table>
 
@@ -329,26 +333,48 @@
 </div>
 
 <h3>Potentiometers (all 8, wired identically)</h3>
+<div class="callout warn">
+  Note: If your pots are moving backwards (e.g., CW decreases the value), you have likely swapped GND and 3V3_A. The mapping below reflects a "reversed" wiring fix implemented in software.
+</div>
 <ul>
-  <li>Pin 1 (left leg / fully CCW) → GND</li>
+  <li>Pin 1 (left leg / fully CCW) → <span class="pin">3V3_A</span> on Daisy Seed</li>
   <li>Pin 2 (middle / wiper) → corresponding ADC pin per table above</li>
-  <li>Pin 3 (right leg / fully CW) → <span class="pin">3V3_A</span> on Daisy Seed</li>
+  <li>Pin 3 (right leg / fully CW) → GND</li>
 </ul>
 
 <h3>Saturation switch (3-position toggle)</h3>
 <ul>
   <li>Common/center terminal → GND</li>
-  <li>Position 1 terminal → <span class="pin">D26</span></li>
-  <li>Position 2 terminal → <span class="pin">D27</span></li>
-  <li>Position 3 inferred in software when both D26 and D27 read low</li>
+  <li>Position 1 terminal → <span class="pin">D26</span> → Soft Clip</li>
+  <li>Position 2 terminal → <span class="pin">D27</span> → Hard Clip</li>
+  <li>Center position (neither pin grounded) → Wavefold</li>
   <li>Configure D26 and D27 with internal pull-ups in firmware</li>
 </ul>
+
+<h3>Sidechain filter switch</h3>
+<ul>
+  <li>Common/center terminal → GND</li>
+  <li>Position 1 terminal → <span class="pin">D11</span> → LPF</li>
+  <li>Position 2 terminal → <span class="pin">D12</span> → HPF</li>
+  <li>Center position (neither pin grounded) → BPF</li>
+</ul>
+
+ 
 
 <h3>Sidechain activity LED</h3>
 <ul>
   <li><span class="pin">D30</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
   <li>LED cathode (short leg) → GND</li>
   <li>LED pulses in time with kick drum when envelope follower exceeds threshold. Adjust <code>kLedThreshold</code> in firmware if needed.</li>
+</ul>
+
+<h3 id="boot">Bootloader entry button</h3>
+<div class="callout">
+  <b>Wiring</b>: Connect one side of a momentary push button to <span class="pin">D8</span> (Board Pin 9) and the other side to <b>GND</b>.
+</div>
+<ul>
+  <li><b>Usage</b>: Hold the button down while powering on or pressing the Reset button on the Daisy Seed.</li>
+  <li><b>Function</b>: Triggers the <code>System::ResetToBootloader()</code> routine, allowing for firmware updates without needing to access the physical buttons on the Daisy module itself.</li>
 </ul>
 
 <h3>Power</h3>

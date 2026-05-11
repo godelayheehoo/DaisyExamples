@@ -10,19 +10,28 @@ A desktop stereo compressor with sidechain input, built around an Electrosmith D
 - **Sidechain In**: Pin **D25 (A10)**. *Requires conditioning circuit (see build_reference.html).*
 
 ### Controls
+> [!IMPORTANT]
+> **Wiring Note**: Due to a hardware wiring reversal (GND and 3V3_A swapped on the pots), all potentiometer readings are inverted in code (`1.0f - reading`). The table below reflects the corrected pin assignments and expected behavior.
+
 | Control | Daisy Pin | Range |
 | --- | --- | --- |
 | **Release** | **D18 (A3)** | 10ms to 1000ms |
-| Threshold | D15 (A0) | -60 to 0 dB (Hardcoded for now) |
-| Ratio | D16 (A1) | 1:1 to 20:1 (Hardcoded for now) |
-| Attack | D17 (A2) | 1ms to 300ms (Hardcoded for now) |
-| Mix | D19 (A4) | 0 to 100% (Hardcoded for now) |
-| Drive | D20 (A5) | 0 to 100% (Hardcoded for now) |
-| Width | D21 (A6) | 0 to 200% (Hardcoded for now) |
-| Output | D22 (A7) | 0 to 100% (Hardcoded for now) |
+| Threshold | D15 (A0) | -60 to 0 dB |
+| Ratio | D16 (A1) | 1:1 to 20:1 |
+| Attack | D17 (A2) | 1ms to 300ms |
+| Mix | D19 (A4) | 0 to 100% |
+| Drive | D20 (A5) | 0 to 100% (Saturation) |
+| Width | D22 (A7) | 0 to 200% (Stereo Width) |
+| Output | D23 (A8) | 0 to +24 dB (Makeup Gain) |
+| **Cutoff** | **D21 (A6)** | 20Hz to 20kHz (SC Filter) |
 
 ### Visual Feedback
 - **Sidechain LED**: Pin **D30**. Pulses with the sidechain envelope.
+
+### Utility
+- **Bootloader Button**: Pin **D8 (Board Pin 9)**. 
+  - **Wiring**: One side of a momentary button to **D8**, the other side to **GND**.
+  - **Function**: Hold this button while powering on or hitting reset to enter bootloader mode for firmware updates.
 
 ## Build Reference
 For complete wiring diagrams and conditioning circuit details, see [build_reference.html](./build_reference.html).
