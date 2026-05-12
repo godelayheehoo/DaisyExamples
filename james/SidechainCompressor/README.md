@@ -35,3 +35,7 @@ A desktop stereo compressor with sidechain input, built around an Electrosmith D
 
 ## Build Reference
 For complete wiring diagrams and conditioning circuit details, see [build_reference.html](./build_reference.html).
+
+
+# BootLoader Mode
+To enter bootloader mode, hold the boot button (small blue button on front) while plugging in the usb cable.  You *may* need to unplug the 9v power supply, not sure.

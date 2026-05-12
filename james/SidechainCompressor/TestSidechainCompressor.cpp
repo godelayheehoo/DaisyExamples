@@ -5,7 +5,7 @@
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-#define DEBUG_LOG 1
+// #define DEBUG_LOG 1
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardcoded parameter values — swap these for pot readings once wired up.
@@ -114,6 +114,7 @@ int main(void)
     hw.DelayMs(10);
     if(!dsy_gpio_read(&boot_sw))
     {
+        System::Delay(500);
         daisy::System::ResetToBootloader();
     }
 
@@ -185,7 +186,7 @@ int main(void)
     sc_filter.SetRes(0.5f);
 
 #ifdef DEBUG_LOG
-    hw.StartLog(false);
+    hw.StartLog(true);
     hw.PrintLine("Sidechain Compressor Test");
 #endif
 
