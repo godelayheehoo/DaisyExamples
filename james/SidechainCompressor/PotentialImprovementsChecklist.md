@@ -11,7 +11,7 @@ Difficulty: Medium. Effort: Medium — requires experimentation to dial in the c
 
 3. [DONE] Gain reduction math is linear, should be logarithmic
 What it is: Compressor arithmetic done in the linear domain (multiplying the signal by a gain factor) rather than the log domain (operating in dB) sounds harder and less musical.
-Technically: Fixed in JamesClasses/compressor.h by smoothing gain reduction in the dB domain and using a Peak detector for level sensing. This ensures the attack/release curves are linear in dB.
+Technically: Fixed in JamesClasses/SidechainCompressor.h by smoothing gain reduction in the dB domain and using a Peak detector for level sensing. This ensures the attack/release curves are linear in dB.
 Difficulty: Low-Medium. Effort: Low once you know whether it's already handled.
 
 4. Saturation is happening post-makeup-gain, wrong order
@@ -31,7 +31,7 @@ Difficulty: Low. Effort: Low — it's a multiply, but requires measurement or li
 
 7. [DONE] Stereo width processing introduces phase artifacts
 What it is: The mid/side width processing (assuming it's rotating between M/S) can cause comb filtering or mono-incompatibility issues if not done carefully. On synths this usually shows up as the stereo image sounding "smeared" or the signal disappearing when summed to mono.
-Technically: Fixed in JamesClasses/compressor.h by implementing a 2% dead-zone around the center point (1.0) and moving the 0.5 normalization factor to the decode side of the matrix. This ensures the matrix is completely bypassed when the pot is near center, eliminating smearing from ADC noise.
+Technically: Fixed in JamesClasses/SidechainCompressor.h by implementing a 2% dead-zone around the center point (1.0) and moving the 0.5 normalization factor to the decode side of the matrix. This ensures the matrix is completely bypassed when the pot is near center, eliminating smearing from ADC noise.
 Difficulty: Low. Effort: Low.
 
 8. Pumping isn't musical — timing feels off

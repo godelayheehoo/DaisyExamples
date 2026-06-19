@@ -1,11 +1,11 @@
 #include "daisy_seed.h"
 #include "daisysp.h"
-#include "compressor.h"
+#include "SidechainCompressor.h"
 
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-// #define DEBUG_LOG 1
+#define DEBUG_LOG 1
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardcoded parameter values — swap these for pot readings once wired up.
@@ -23,6 +23,10 @@ enum class FilterMode
     kHPF
 };
 volatile FilterMode current_filter_mode = FilterMode::kLPF;
+
+volatile float current_threshold = -20.0f;
+volatile float debug_sc_pre_peak = 0.0f;
+volatile float debug_sc_post_peak = 0.0f;
 
 // LED fires when envelope follower exceeds this — tune if needed
 static constexpr float kLedThreshold = 0.15f;
@@ -70,30 +74,45 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
                    size_t                    size)
 {
-    float sc_in = hw.adc.GetFloat(kScInput); // A10 / D25, conditioned 0..1
-
-    // Apply sidechain filter
-    sc_filter.Process(sc_in);
-    switch(current_filter_mode)
-    {
-        case FilterMode::kLPF: sc_in = sc_filter.Low(); break;
-        case FilterMode::kBPF: sc_in = sc_filter.Band(); break;
-        case FilterMode::kHPF: sc_in = sc_filter.High(); break;
-    }
-
     for(size_t i = 0; i < size; i++)
     {
+        float sc_in_pre = hw.adc.GetFloat(kScInput); // A10 / D25, conditioned 0..1
+
+        // Track pre-filter peak
+        float abs_pre = fabsf(sc_in_pre);
+        if(abs_pre > debug_sc_pre_peak)
+        {
+            debug_sc_pre_peak = abs_pre;
+        }
+
+        // Apply sidechain filter at sample rate
+        sc_filter.Process(sc_in_pre);
+        float sc_in_post = sc_in_pre;
+        switch(current_filter_mode)
+        {
+            case FilterMode::kLPF: sc_in_post = sc_filter.Low(); break;
+            case FilterMode::kBPF: sc_in_post = sc_filter.Band(); break;
+            case FilterMode::kHPF: sc_in_post = sc_filter.High(); break;
+        }
+
+        // Track post-filter peak
+        float abs_post = fabsf(sc_in_post);
+        if(abs_post > debug_sc_post_peak)
+        {
+            debug_sc_post_peak = abs_post;
+        }
+
         float left  = in[0][i];
         float right = in[1][i];
 
-        comp.Process(sc_in, &left, &right);
+        comp.Process(sc_in_post, &left, &right);
 
         out[0][i] = left;
         out[1][i] = right;
     }
 
-    // Update LED once per block using the compressor's internal envelope
-    dsy_gpio_write(&led, comp.GetEnvelope() > kLedThreshold ? 1 : 0);
+    // Option B: Update LED if envelope exceeds threshold
+    dsy_gpio_write(&led, comp.GetEnvelopeDB() > current_threshold ? 1 : 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,6 +131,7 @@ int main(void)
     boot_sw.pull = DSY_GPIO_PULLUP;
     dsy_gpio_init(&boot_sw);
     hw.DelayMs(10);
+    //temp: remove
     if(!dsy_gpio_read(&boot_sw))
     {
         System::Delay(500);
@@ -228,9 +248,9 @@ int main(void)
             current_filter_mode = FilterMode::kBPF;
 
         // 2. Read Pots and Update Parameters
-        float thresh_val = 1.0f - hw.adc.GetFloat(kThresholdPot);
-        float threshold  = -60.0f + (thresh_val * 60.0f); // -60 to 0 dB
-        comp.SetThreshold(threshold);
+        float thresh_val  = 1.0f - hw.adc.GetFloat(kThresholdPot);
+        current_threshold = -60.0f + (thresh_val * 60.0f); // -60 to 0 dB
+        comp.SetThreshold(current_threshold);
 
         float ratio_val = 1.0f - hw.adc.GetFloat(kRatioPot);
         float ratio     = 1.0f + (ratio_val * 19.0f); // 1:1 to 20:1
@@ -272,6 +292,11 @@ int main(void)
 
         comp.SetSatMode(current_sat_mode);
 #ifdef DEBUG_LOG
+        float pre_db = 20.0f * log10f(debug_sc_pre_peak > 1e-9f ? debug_sc_pre_peak : 1e-9f);
+        float post_db = 20.0f * log10f(debug_sc_post_peak > 1e-9f ? debug_sc_post_peak : 1e-9f);
+        debug_sc_pre_peak = 0.0f;
+        debug_sc_post_peak = 0.0f;
+
         const char* sat_str
             = (current_sat_mode == SidechainCompressor::SatMode::kSoft) ? "SOFT"
               : (current_sat_mode == SidechainCompressor::SatMode::kHard)
@@ -282,10 +307,12 @@ int main(void)
                                    ? "HPF"
                                    : "BPF";
 
-        hw.PrintLine("T:" FLT_FMT3 " R:" FLT_FMT3 " A:" FLT_FMT3 " Re:" FLT_FMT3
+        hw.PrintLine("T:" FLT_FMT3 " Pre:" FLT_FMT3 " Post:" FLT_FMT3 " R:" FLT_FMT3 " A:" FLT_FMT3 " Re:" FLT_FMT3
                      " M:" FLT_FMT3 " D:" FLT_FMT3 " W:" FLT_FMT3 " O:" FLT_FMT3
                      " C:" FLT_FMT3 " Sat:%s Filt:%s",
-                     FLT_VAR3(threshold),
+                     FLT_VAR3(current_threshold),
+                     FLT_VAR3(pre_db),
+                     FLT_VAR3(post_db),
                      FLT_VAR3(ratio),
                      FLT_VAR3(attack_ms),
                      FLT_VAR3(release_ms),

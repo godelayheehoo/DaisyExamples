@@ -39,3 +39,22 @@ For complete wiring diagrams and conditioning circuit details, see [build_refere
 
 # BootLoader Mode
 To enter bootloader mode, hold the boot button (small blue button on front) while plugging in the usb cable.  You *may* need to unplug the 9v power supply, not sure.
+
+On windows, use PuTTY to connect to the Daisy COM port.  
+
+On mac, do:
+
+```
+ls /dev/cu.usbmodem*
+```
+then:
+```
+screen /dev/cu.usbmodem\<the number>
+```
+
+
+## Code updates:
+`make`
+and then 
+`make program-dfu`
+

@@ -1,6 +1,39 @@
 {
   "configurations": [
     {
+      "name": "Mac",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "${workspaceFolder}/../../libDaisy/src",
+        "${workspaceFolder}/../../libDaisy/src/dev",
+        "${workspaceFolder}/../../libDaisy/src/per",
+        "${workspaceFolder}/../../libDaisy/src/sys",
+        "${workspaceFolder}/../../libDaisy/src/util",
+        "${workspaceFolder}/../../DaisySP/Source",
+        "${workspaceFolder}/../../JamesClasses"
+      ],
+      "defines": [
+        "_DEBUG",
+        "UNICODE",
+        "_UNICODE",
+        "STM32H750xx",
+        "STM32H750IB"
+      ],
+      "compilerPath": "/opt/homebrew/bin/arm-none-eabi-g++",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "gcc-arm",
+      "browse": {
+        "path": [
+          "${workspaceFolder}",
+          "${workspaceFolder}/../../libDaisy/src",
+          "${workspaceFolder}/../../DaisySP/Source",
+          "${workspaceFolder}/../../JamesClasses"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      }
+    },
+    {
       "name": "Win32",
       "includePath": [
         "${workspaceFolder}/**",
