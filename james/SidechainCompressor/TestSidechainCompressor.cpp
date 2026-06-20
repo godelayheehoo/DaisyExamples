@@ -5,7 +5,7 @@
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-#define DEBUG_LOG 1
+// #define DEBUG_LOG 1
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardcoded parameter values — swap these for pot readings once wired up.
@@ -24,8 +24,8 @@ enum class FilterMode
 };
 volatile FilterMode current_filter_mode = FilterMode::kLPF;
 
-volatile float current_threshold = -20.0f;
-volatile float debug_sc_pre_peak = 0.0f;
+volatile float current_threshold  = -20.0f;
+volatile float debug_sc_pre_peak  = 0.0f;
 volatile float debug_sc_post_peak = 0.0f;
 
 // LED fires when envelope follower exceeds this — tune if needed
@@ -76,7 +76,8 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 {
     for(size_t i = 0; i < size; i++)
     {
-        float sc_in_pre = hw.adc.GetFloat(kScInput); // A10 / D25, conditioned 0..1
+        float sc_in_pre
+            = hw.adc.GetFloat(kScInput); // A10 / D25, conditioned 0..1
 
         // Track pre-filter peak
         float abs_pre = fabsf(sc_in_pre);
@@ -253,7 +254,9 @@ int main(void)
         comp.SetThreshold(current_threshold);
 
         float ratio_val = 1.0f - hw.adc.GetFloat(kRatioPot);
-        float ratio     = 1.0f + (ratio_val * 19.0f); // 1:1 to 20:1
+        // Exponential mapping: 1:1 at min → 100:1 at max
+        // Mid-pot (~0.5) gives ~10:1, top gives near-limiting at 100:1
+        float ratio = powf(100.0f, ratio_val);
         comp.SetRatio(ratio);
 
         float atk_val   = 1.0f - hw.adc.GetFloat(kAttackPot);
@@ -292,36 +295,28 @@ int main(void)
 
         comp.SetSatMode(current_sat_mode);
 #ifdef DEBUG_LOG
-        float pre_db = 20.0f * log10f(debug_sc_pre_peak > 1e-9f ? debug_sc_pre_peak : 1e-9f);
-        float post_db = 20.0f * log10f(debug_sc_post_peak > 1e-9f ? debug_sc_post_peak : 1e-9f);
-        debug_sc_pre_peak = 0.0f;
+        float pre_db
+            = 20.0f
+              * log10f(debug_sc_pre_peak > 1e-9f ? debug_sc_pre_peak : 1e-9f);
+        float post_db
+            = 20.0f
+              * log10f(debug_sc_post_peak > 1e-9f ? debug_sc_post_peak : 1e-9f);
+        debug_sc_pre_peak  = 0.0f;
         debug_sc_post_peak = 0.0f;
 
-        const char* sat_str
-            = (current_sat_mode == SidechainCompressor::SatMode::kSoft) ? "SOFT"
-              : (current_sat_mode == SidechainCompressor::SatMode::kHard)
-                  ? "HARD"
-                  : "FOLD";
         const char* filt_str = (current_filter_mode == FilterMode::kLPF) ? "LPF"
                                : (current_filter_mode == FilterMode::kHPF)
                                    ? "HPF"
                                    : "BPF";
 
-        hw.PrintLine("T:" FLT_FMT3 " Pre:" FLT_FMT3 " Post:" FLT_FMT3 " R:" FLT_FMT3 " A:" FLT_FMT3 " Re:" FLT_FMT3
-                     " M:" FLT_FMT3 " D:" FLT_FMT3 " W:" FLT_FMT3 " O:" FLT_FMT3
-                     " C:" FLT_FMT3 " Sat:%s Filt:%s",
+        hw.PrintLine("T:" FLT_FMT3 " Pre:" FLT_FMT3 " Post:" FLT_FMT3
+                     " R:" FLT_FMT3 " O:" FLT_FMT3 " C:" FLT_FMT3 " F:%s",
                      FLT_VAR3(current_threshold),
                      FLT_VAR3(pre_db),
                      FLT_VAR3(post_db),
                      FLT_VAR3(ratio),
-                     FLT_VAR3(attack_ms),
-                     FLT_VAR3(release_ms),
-                     FLT_VAR3(mix_val),
-                     FLT_VAR3(drive_val),
-                     FLT_VAR3(width_val),
                      FLT_VAR3(makeup_db),
                      FLT_VAR3(cutoff_hz),
-                     sat_str,
                      filt_str);
         hw.DelayMs(250);
 #endif
