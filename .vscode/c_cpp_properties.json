@@ -1,7 +1,64 @@
 {
     "configurations": [
         {
-            "name": "Daisy",
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/libDaisy/src",
+                "${workspaceFolder}/libDaisy/src/sys",
+                "${workspaceFolder}/libDaisy/src/usbd",
+                "${workspaceFolder}/libDaisy/src/dev",
+                "${workspaceFolder}/libDaisy/src/per",
+                "${workspaceFolder}/libDaisy/src/util",
+                "${workspaceFolder}/libDaisy/Drivers/CMSIS/Include",
+                "${workspaceFolder}/libDaisy/Drivers/CMSIS/Device/ST/STM32H7xx/Include",
+                "${workspaceFolder}/libDaisy/Drivers/STM32H7xx_HAL_Driver/Inc",
+                "${workspaceFolder}/libDaisy/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy",
+                "${workspaceFolder}/libDaisy/Middlewares/ST/STM32_USB_Device_Library/Core/Inc",
+                "${workspaceFolder}/libDaisy/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc",
+                "${workspaceFolder}/libDaisy/Middlewares/Third_Party/FatFs/src",
+                "${workspaceFolder}/libDaisy",
+                "${workspaceFolder}/libDaisy/Drivers/CMSIS/DSP/Include",
+                "${workspaceFolder}/DaisySP",
+                "${workspaceFolder}/DaisySP/examples/fastconv",
+                "${workspaceFolder}/libDaisy/src/hid",
+                "${workspaceFolder}/DaisySP/tests/fastconv",
+                "${workspaceFolder}/DaisySP/tests/util",
+                "${workspaceFolder}/DaisySP/modules",
+                "${workspaceFolder}/DaisySP/Source",
+                "${workspaceFolder}/JamesClasses",
+                "${workspaceFolder}/**"
+            ],
+            "defines": [
+                "CORE_CM7",
+                "STM32H750xx",
+                "STM32H750IB",
+                "ARM_MATH_CM7",
+                "flash_layout",
+                "HSE_VALUE=16000000",
+                "USE_HAL_DRIVER",
+                "USE_FULL_LL_DRIVER"
+            ],
+            "compilerPath": "/opt/homebrew/bin/arm-none-eabi-g++",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "gcc-arm",
+            "compilerArgs": [
+                "-fno-exceptions",
+                "-fno-rtti",
+                "-std=gnu++17",
+                "-std=gnu11",
+                "-Wall",
+                "-Wno-attributes",
+                "-Wno-strict-aliasing",
+                "-Wno-maybe-uninitialized",
+                "-mcpu=cortex-m7",
+                "-mfpu=fpv5-d16",
+                "-mfloat-abi=hard",
+                "-mthumb"
+            ]
+        },
+        {
+            "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/libdaisy/src",
                 "${workspaceFolder}/libdaisy/src/sys",
@@ -25,7 +82,8 @@
                 "${workspaceFolder}/DaisySP/modules",
                 "${workspaceFolder}/DaisySP/Source",
                 "${workspaceFolder}/DaisySP/tests/util",
-                "${workspaceFolder}/JamesClasses"
+                "${workspaceFolder}/JamesClasses",
+                "${workspaceFolder}/**"
             ],
             "defines": [
                 "CORE_CM7",
@@ -40,12 +98,12 @@
             "windowsSdkVersion": "",
             "compilerPath": "\"C:\\Program Files (x86)\\GNU Arm Embedded Toolchain\\9 2020-q2-update\\bin\\arm-none-eabi-g++.exe\"",
             "cStandard": "gnu11",
-            "cppStandard": "gnu++14",
+            "cppStandard": "gnu++17",
             "intelliSenseMode": "gcc-arm",
             "compilerArgs": [
                 "-fno-exceptions",
                 "-fno-rtti",
-                "-std=gnu++14",
+                "-std=gnu++17",
                 "-std=gnu11",
                 "-Wall",
                 "-Wno-attributes",

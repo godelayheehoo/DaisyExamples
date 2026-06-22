@@ -1,6 +1,7 @@
 #include "daisy_seed.h"
 #include "daisysp.h"
 #include "SidechainCompressor.h"
+#include "constants.h"
 
 using namespace daisy;
 
@@ -29,7 +30,6 @@ volatile float debug_sc_pre_peak  = 0.0f;
 volatile float debug_sc_post_peak = 0.0f;
 
 // LED fires when envelope follower exceeds this — tune if needed
-static constexpr float kLedThreshold = 0.15f;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pin assignments
@@ -254,9 +254,18 @@ int main(void)
         comp.SetThreshold(current_threshold);
 
         float ratio_val = 1.0f - hw.adc.GetFloat(kRatioPot);
-        // Exponential mapping: 1:1 at min → 100:1 at max
-        // Mid-pot (~0.5) gives ~10:1, top gives near-limiting at 100:1
-        float ratio = powf(100.0f, ratio_val);
+        // Exponential mapping: 1:1 at min → 100:1 at max (at kInfinityCutoff)
+        // Past kInfinityCutoff, the ratio becomes infinite (1:inf)
+        float ratio;
+        if(ratio_val <= INFINITY_CUTOFF)
+        {
+            float normalized_ratio = ratio_val / INFINITY_CUTOFF;
+            ratio                  = powf(100.0f, normalized_ratio);
+        }
+        else
+        {
+            ratio = INFINITY;
+        }
         comp.SetRatio(ratio);
 
         float atk_val   = 1.0f - hw.adc.GetFloat(kAttackPot);
@@ -309,12 +318,27 @@ int main(void)
                                    ? "HPF"
                                    : "BPF";
 
+        char ratio_buf[16];
+        if(std::isinf(ratio))
+        {
+            snprintf(ratio_buf, sizeof(ratio_buf), "inf");
+        }
+        else
+        {
+            int ratio_int  = (int)ratio;
+            int ratio_frac = (int)((ratio - ratio_int) * 1000.f);
+            if(ratio_frac < 0)
+                ratio_frac = -ratio_frac;
+            snprintf(
+                ratio_buf, sizeof(ratio_buf), "%d.%03d", ratio_int, ratio_frac);
+        }
+
         hw.PrintLine("T:" FLT_FMT3 " Pre:" FLT_FMT3 " Post:" FLT_FMT3
-                     " R:" FLT_FMT3 " O:" FLT_FMT3 " C:" FLT_FMT3 " F:%s",
+                     " R:%s O:" FLT_FMT3 " C:" FLT_FMT3 " F:%s",
                      FLT_VAR3(current_threshold),
                      FLT_VAR3(pre_db),
                      FLT_VAR3(post_db),
-                     FLT_VAR3(ratio),
+                     ratio_buf,
                      FLT_VAR3(makeup_db),
                      FLT_VAR3(cutoff_hz),
                      filt_str);

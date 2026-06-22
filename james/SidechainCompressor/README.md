@@ -17,7 +17,7 @@ A desktop stereo compressor with sidechain input, built around an Electrosmith D
 | --- | --- | --- |
 | **Release** | **D18 (A3)** | 10ms to 1000ms |
 | Threshold | D15 (A0) | -60 to 0 dB |
-| Ratio | D16 (A1) | 1:1 to 20:1 |
+| Ratio | D16 (A1) | 1:1 to 100:1, then 1:inf past 90% |
 | Attack | D17 (A2) | 1ms to 300ms |
 | Mix | D19 (A4) | 0 to 100% |
 | Drive | D20 (A5) | 0 to 100% (Saturation) |

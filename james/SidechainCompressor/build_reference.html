@@ -291,7 +291,7 @@
   </thead>
   <tbody>
     <tr><td>Threshold</td><td>A0 / D15</td><td>−60 to 0 dB</td><td>Level at which compression begins</td></tr>
-    <tr><td>Ratio</td><td>A1 / D16</td><td>1:1 to 20:1</td><td>How aggressively gain is reduced above threshold</td></tr>
+    <tr><td>Ratio</td><td>A1 / D16</td><td>1:1 to 100:1, then 1:inf past 90%</td><td>How aggressively gain is reduced above threshold. Past 90% pot travel, acts as 1:inf brickwall limiting.</td></tr>
     <tr><td>Attack</td><td>A2 / D17</td><td>1ms to 300ms</td><td>How quickly compression engages after threshold is crossed</td></tr>
     <tr><td>Release</td><td>A3 / D18</td><td>10ms to 1000ms</td><td>How quickly compression releases after signal falls below threshold</td></tr>
     <tr><td>Mix</td><td>A4 / D19</td><td>0 to 100%</td><td>Blend between dry (uncompressed) and wet (compressed) signal</td></tr>
@@ -365,7 +365,7 @@
 <ul>
   <li><span class="pin">D30</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
   <li>LED cathode (short leg) → GND</li>
-  <li>LED pulses in time with kick drum when envelope follower exceeds threshold. Adjust <code>kLedThreshold</code> in firmware if needed.</li>
+  <li>LED pulses in time with kick drum when envelope follower exceeds the compression threshold.</li>
 </ul>
 
 <h3 id="boot">Bootloader entry button</h3>
