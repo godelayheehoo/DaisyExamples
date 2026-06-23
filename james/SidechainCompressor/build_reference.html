@@ -257,7 +257,7 @@
 
 <!-- WHAT THIS IS -->
 <h2 id="what">What this is</h2>
-<p>A desktop stereo compressor with sidechain input, built around an Electrosmith Daisy Seed DSP module. A kick drum signal plugged into the sidechain input drives the compression envelope, causing the stereo audio signal to duck in time with the kick — the classic pumping effect. The unit also includes adjustable saturation with three character modes and a stereo width control.</p>
+<p>A desktop stereo compressor with sidechain input, built around an Electrosmith Daisy Seed DSP module. A kick drum signal plugged into the sidechain input drives the compression envelope, causing the stereo audio to duck in time with the kick — the classic pumping effect. The unit also includes selectable character modes (soft saturation, wavefolding, or full ducker mode) and a stereo width control.</p>
 <p>All signal processing happens in software on the Daisy Seed. The only analog circuitry required is a small input conditioning stage for the sidechain channel.</p>
 
 <!-- SIGNAL FLOW -->
@@ -295,7 +295,8 @@
     <tr><td>Attack</td><td>A2 / D17</td><td>1ms to 300ms</td><td>How quickly compression engages after threshold is crossed</td></tr>
     <tr><td>Release</td><td>A3 / D18</td><td>10ms to 1000ms</td><td>How quickly compression releases after signal falls below threshold</td></tr>
     <tr><td>Mix</td><td>A4 / D19</td><td>0 to 100%</td><td>Blend between dry (uncompressed) and wet (compressed) signal</td></tr>
-    <tr><td>Drive</td><td>A5 / D20</td><td>0 to 100%</td><td>Amount of saturation applied after compression</td></tr>
+    <tr><td>Drive</td><td>A5 / D20</td><td>0 to 100%</td><td>Amount of saturation applied after compression (controls Ducking Depth from 0 to -100 dB when in Ducker mode)</td></tr>
+    <tr><td>Character Switch</td><td>D26 + D27</td><td>3 Positions</td><td>Selects character mode: Soft Saturation / Ducker Mode / Wavefolding</td></tr>
     <tr><td>Width</td><td>A7 / D22</td><td>0 to 200%</td><td>Stereo width. 100% = unchanged. Below narrows, above widens.</td></tr>
     <tr><td>Output</td><td>A8 / D23</td><td>0 to 100%</td><td>Final output level trim</td></tr>
     <tr><td>SC Filter Cutoff</td><td>A6 / D21</td><td>20Hz to 20kHz</td><td>Cutoff frequency of the sidechain filter</td></tr>
@@ -304,7 +305,7 @@
   </tbody>
 </table>
 
-<p>The three-position toggle switch selects saturation character. Two signal legs connect to <span class="pin">D26</span> and <span class="pin">D27</span>. Configure both with internal pull-ups in firmware. The three positions select: soft clip (smooth, tape-like), hard clip (aggressive), or wavefold (complex, synth-like).</p>
+<p>The three-position toggle switch selects the processing character. Two signal legs connect to <span class="pin">D26</span> and <span class="pin">D27</span>. Configure both with internal pull-ups in firmware. The three positions select: soft clip (smooth, tape-like), ducker mode (fully ducks output when sidechain triggers), or wavefold (complex, synth-like).</p>
 
 <!-- WIRING -->
 <h2 id="wiring">Complete wiring summary</h2>
@@ -342,11 +343,11 @@
   <li>Pin 3 (right leg / fully CW) → GND</li>
 </ul>
 
-<h3>Saturation switch (3-position toggle)</h3>
+<h3>Character switch (3-position toggle)</h3>
 <ul>
   <li>Common/center terminal → GND</li>
   <li>Position 1 terminal → <span class="pin">D26</span> → Soft Clip</li>
-  <li>Position 2 terminal → <span class="pin">D27</span> → Hard Clip</li>
+  <li>Position 2 terminal → <span class="pin">D27</span> → Ducker Mode</li>
   <li>Center position (neither pin grounded) → Wavefold</li>
   <li>Configure D26 and D27 with internal pull-ups in firmware</li>
 </ul>

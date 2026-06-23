@@ -297,7 +297,7 @@ int main(void)
         if(s1 && !s2)
             current_sat_mode = SidechainCompressor::SatMode::kSoft;
         else if(!s1 && s2)
-            current_sat_mode = SidechainCompressor::SatMode::kHard;
+            current_sat_mode = SidechainCompressor::SatMode::kDucker;
         else
             current_sat_mode = SidechainCompressor::SatMode::
                 kFold; // Center position (Both High)

@@ -20,7 +20,8 @@ A desktop stereo compressor with sidechain input, built around an Electrosmith D
 | Ratio | D16 (A1) | 1:1 to 100:1, then 1:inf past 90% |
 | Attack | D17 (A2) | 1ms to 300ms |
 | Mix | D19 (A4) | 0 to 100% |
-| Drive | D20 (A5) | 0 to 100% (Saturation) |
+| Drive | D20 (A5) | 0 to 100% | Saturation Amount (or Ducking Depth in Ducker mode) |
+| Sat Switch | D26 + D27 | 3 Positions | Soft Saturation / Ducker Mode (top position) / Wavefolding |
 | Width | D22 (A7) | 0 to 200% (Stereo Width) |
 | Output | D23 (A8) | 0 to +24 dB (Makeup Gain) |
 | **Cutoff** | **D21 (A6)** | 20Hz to 20kHz (SC Filter) |
