@@ -6,7 +6,7 @@
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-// #define DEBUG_LOG 1
+#define DEBUG_LOG 1
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardcoded parameter values — swap these for pot readings once wired up.
@@ -333,13 +333,19 @@ int main(void)
                 ratio_buf, sizeof(ratio_buf), "%d.%03d", ratio_int, ratio_frac);
         }
 
-        hw.PrintLine("T:" FLT_FMT3 " Pre:" FLT_FMT3 " Post:" FLT_FMT3
-                     " R:%s O:" FLT_FMT3 " C:" FLT_FMT3 " F:%s",
+        hw.PrintLine("T:" FLT_FMT3 " R:%s A:" FLT_FMT3 " Rel:" FLT_FMT3
+                     " M:" FLT_FMT3 " D:" FLT_FMT3 " W:" FLT_FMT3 " O:" FLT_FMT3,
                      FLT_VAR3(current_threshold),
+                     ratio_buf,
+                     FLT_VAR3(attack_ms),
+                     FLT_VAR3(release_ms),
+                     FLT_VAR3(mix_val),
+                     FLT_VAR3(drive_val),
+                     FLT_VAR3(width_val * 2.0f),
+                     FLT_VAR3(makeup_db));
+        hw.PrintLine("Pre:" FLT_FMT3 " Post:" FLT_FMT3 " C:" FLT_FMT3 " F:%s",
                      FLT_VAR3(pre_db),
                      FLT_VAR3(post_db),
-                     ratio_buf,
-                     FLT_VAR3(makeup_db),
                      FLT_VAR3(cutoff_hz),
                      filt_str);
         hw.DelayMs(250);
