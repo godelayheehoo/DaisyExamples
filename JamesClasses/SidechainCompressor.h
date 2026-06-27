@@ -31,7 +31,7 @@
 
 class SidechainCompressor {
  public:
-  enum class SatMode { kSoft, kHard, kFold };
+  enum class SatMode { kSoft, kFold, kDucker };
 
 
 
@@ -108,7 +108,14 @@ class SidechainCompressor {
     float level_db = LinToDB(env_);
 
     // --- 2. Gain computer (dB) ---
-    float gain_reduction_db = GainComputer(level_db);
+    float gain_reduction_db;
+    if (sat_mode_ == SatMode::kDucker) {
+      // Repurpose sat_amount_ (0..1) to control ducking depth (e.g. 0 to -100 dB)
+      float duck_depth_db = -sat_amount_ * 100.0f;
+      gain_reduction_db = (level_db > threshold_db_) ? duck_depth_db : 0.0f;
+    } else {
+      gain_reduction_db = GainComputer(level_db);
+    }
 
     // --- 3. Smooth the gain reduction signal in the dB domain ---
     // This makes the gain reduction logarithmic (linear in dB)
@@ -190,16 +197,15 @@ class SidechainCompressor {
   }
 
   float Saturate(float x) const {
+    if (sat_mode_ == SatMode::kDucker) {
+      return x; // Bypass output stage processing completely
+    }
     float driven = x * (1.0f + sat_amount_ * 4.0f);  // pre-gain into sat stage
     float y;
     switch (sat_mode_) {
       case SatMode::kSoft:
         // Tanh soft clip — smooth, tube-like
         y = tanhf(driven);
-        break;
-      case SatMode::kHard:
-        // Hard clip at ±1
-        y = fclamp(driven, -1.0f, 1.0f);
         break;
       case SatMode::kFold:
         // Wavefolding — folds signal back on itself
