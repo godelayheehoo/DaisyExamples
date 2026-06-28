@@ -294,29 +294,7 @@ buffer_length = MIN(buffer_length, STUTTER_BUFFER_MAX_SAMPLES);
 
 ## 7. Menu System
 
-### 7.1 Navigation Model
-- Menu encoder rotation scrolls through menu items
-- Menu encoder push selects item / confirms value
-- Single menu level for now; no nested submenus required initially
-- Menu encoder is entirely separate from rate encoder; both are always active
-
-### 7.2 Initial Menu Items
-
-| Item | Type | Values |
-|---|---|---|
-| MIDI Sync | Toggle | Off / On |
-| Quantize Trigger | Toggle | Off / On |
-
-### 7.3 Display Layout (128×64 SSD1306)
-- Line 0: Unit status ("IDLE", "RECORDING", "PLAYING", "NO CLOCK")
-- Line 1: Current rate value (e.g. "RATE: 1.00x")
-- Lines 2–3: Menu items, current item highlighted with cursor or inverted text
-- Line 4: Current BPM (if MIDI sync active)
-
-### 7.4 Menu Should Not Block Audio
-- OLED writes happen only in the main loop, never in the audio callback
-- libDaisy's `OledDisplay` driver handles I2C; call `display.Update()` in main loop only
-
+See the file "./menu_system_design.md"
 ---
 
 ## 8. Configuration Persistence

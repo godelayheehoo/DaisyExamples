@@ -2,7 +2,7 @@
 TARGET = Stutter
 
 # Sources
-CPP_SOURCES = Stutter.cpp
+CPP_SOURCES = Stutter.cpp menu.cpp
 
 # Library Locations
 LIBDAISY_DIR = ../../libDaisy/
