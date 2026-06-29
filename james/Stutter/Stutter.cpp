@@ -273,15 +273,15 @@ int main(void)
     midi.StartReceive();
 
     // Initialize Stutter runtime states
-    runtime.state          = STUTTER_IDLE;
-    runtime.rate           = 1.0f;
-    runtime.target_rate    = 1.0f;
-    runtime.wet            = 0.5f;
-    runtime.buffer_length  = 48000;
-    runtime.trigger_active = false;
-    runtime.bpm            = 120.0f;
-    runtime.has_clock      = false;
-    runtime.subdiv_pos     = 2; // Default to 1/8 note
+    runtime.state            = STUTTER_IDLE;
+    runtime.rate             = 1.0f;
+    runtime.target_rate      = 1.0f;
+    runtime.wet              = 0.5f;
+    runtime.buffer_length    = 48000;
+    runtime.trigger_active   = false;
+    runtime.bpm              = 120.0f;
+    runtime.has_clock        = false;
+    runtime.subdiv_pos       = 2; // Default to 1/8 note
     runtime.midi_event_count = 0;
 
     // Start peripherals
@@ -306,7 +306,7 @@ int main(void)
     uint32_t last_clock_recv_ms = 0;
     float    bpm_smoothed       = 120.0f;
     bool     first_clock        = true;
-    bool     prev_has_clock     = false;
+    // bool     prev_has_clock     = false;
 
     while(1)
     {
@@ -390,6 +390,7 @@ int main(void)
         }
 
         // Print log when MIDI clock status transitions
+        /*
         if(runtime.has_clock && !prev_has_clock)
         {
             hw.PrintLine("MIDI Clock Active. BPM: %d", (int)bpm_smoothed);
@@ -398,7 +399,8 @@ int main(void)
         {
             hw.PrintLine("MIDI Clock Timeout. Reverting to internal BPM.");
         }
-        prev_has_clock = runtime.has_clock;
+        */
+        // prev_has_clock = runtime.has_clock;
 
         // Set active BPM based on configuration and clock availability
         if(config.midi_sync_enabled && runtime.has_clock)

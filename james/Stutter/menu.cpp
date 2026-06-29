@@ -80,11 +80,9 @@ static void RenderStatusScreen(StutterDisplay&       display,
     }
     else
     {
-        int bpm_whole = static_cast<int>(rt->bpm);
-        int bpm_frac  = static_cast<int>((rt->bpm - bpm_whole) * 10.0f);
-        if(bpm_frac < 0)
-            bpm_frac = -bpm_frac;
-        snprintf(buf, sizeof(buf), "BPM: %3d.%1d       ", bpm_whole, bpm_frac);
+        // Round to nearest integer BPM to minimize draw calls on jitter
+        int bpm_rounded = static_cast<int>(rt->bpm + 0.5f);
+        snprintf(buf, sizeof(buf), "BPM: %3d           ", bpm_rounded);
     }
     display.SetCursor(0, 10);
     display.WriteString(buf, Font_7x10, true);
@@ -372,7 +370,7 @@ void MenuRender(StutterDisplay&       display,
         static float        last_rate        = -1.0f;
         static float        last_target_rate = -1.0f;
         static float        last_wet         = -1.0f;
-        static float        last_bpm         = -1.0f;
+        static int          last_bpm_rounded = -1;
         static bool         last_has_clock   = false;
         static int          last_subdiv      = -1;
 
@@ -385,12 +383,11 @@ void MenuRender(StutterDisplay&       display,
         float wet_diff = rt->wet - last_wet;
         if(wet_diff < 0)
             wet_diff = -wet_diff;
-        float bpm_diff = rt->bpm - last_bpm;
-        if(bpm_diff < 0)
-            bpm_diff = -bpm_diff;
+        int cur_bpm_rounded = static_cast<int>(rt->bpm + 0.5f);
 
         if(rt->state != last_state || rate_diff > 0.01f
-           || target_rate_diff > 0.01f || wet_diff > 0.01f || bpm_diff > 0.1f
+           || target_rate_diff > 0.01f || wet_diff > 0.01f
+           || cur_bpm_rounded != last_bpm_rounded
            || rt->has_clock != last_has_clock || rt->subdiv_pos != last_subdiv
            || ctx->needs_redraw)
         {
@@ -399,7 +396,7 @@ void MenuRender(StutterDisplay&       display,
             last_rate        = rt->rate;
             last_target_rate = rt->target_rate;
             last_wet         = rt->wet;
-            last_bpm         = rt->bpm;
+            last_bpm_rounded = cur_bpm_rounded;
             last_has_clock   = rt->has_clock;
             last_subdiv      = rt->subdiv_pos;
         }
@@ -410,23 +407,23 @@ void MenuRender(StutterDisplay&       display,
     }
     else if(ctx->state == MENU_STATE_DEBUG)
     {
-        static float last_wet_dry = -1.0f;
-        static int   last_menu_a = -1, last_menu_b = -1, last_menu_sw = -1;
-        static int   last_rate_a = -1, last_rate_b = -1, last_rate_sw = -1;
-        static int   last_rot = -1;
-        static int   last_bak = -1, last_con = -1;
+        static float    last_wet_dry = -1.0f;
+        static int      last_menu_a = -1, last_menu_b = -1, last_menu_sw = -1;
+        static int      last_rate_a = -1, last_rate_b = -1, last_rate_sw = -1;
+        static int      last_rot = -1;
+        static int      last_bak = -1, last_con = -1;
         static uint32_t last_midi_count = 0;
 
-        float wet_dry_val = 1.0f - hw.adc.GetFloat(0);
-        int   menu_a      = menu_pin_a.Read();
-        int   menu_b      = menu_pin_b.Read();
-        int   menu_sw     = menu_pin_sw.Read();
-        int   rate_a      = rate_pin_a.Read();
-        int   rate_b      = rate_pin_b.Read();
-        int   rate_sw     = rate_pin_sw.Read();
-        int   bak_val     = menu_pin_bak.Read();
-        int   con_val     = menu_pin_con.Read();
-        uint32_t midi_count = rt->midi_event_count;
+        float    wet_dry_val = 1.0f - hw.adc.GetFloat(0);
+        int      menu_a      = menu_pin_a.Read();
+        int      menu_b      = menu_pin_b.Read();
+        int      menu_sw     = menu_pin_sw.Read();
+        int      rate_a      = rate_pin_a.Read();
+        int      rate_b      = rate_pin_b.Read();
+        int      rate_sw     = rate_pin_sw.Read();
+        int      bak_val     = menu_pin_bak.Read();
+        int      con_val     = menu_pin_con.Read();
+        uint32_t midi_count  = rt->midi_event_count;
 
         int rot_pos = -1;
         for(int i = 0; i < 5; i++)
@@ -446,20 +443,19 @@ void MenuRender(StutterDisplay&       display,
            || menu_sw != last_menu_sw || rate_a != last_rate_a
            || rate_b != last_rate_b || rate_sw != last_rate_sw
            || rot_pos != last_rot || bak_val != last_bak || con_val != last_con
-           || midi_count != last_midi_count
-           || ctx->needs_redraw)
+           || midi_count != last_midi_count || ctx->needs_redraw)
         {
-            should_redraw = true;
-            last_wet_dry  = wet_dry_val;
-            last_menu_a   = menu_a;
-            last_menu_b   = menu_b;
-            last_menu_sw  = menu_sw;
-            last_rate_a   = rate_a;
-            last_rate_b   = rate_b;
-            last_rate_sw  = rate_sw;
-            last_rot      = rot_pos;
-            last_bak      = bak_val;
-            last_con      = con_val;
+            should_redraw   = true;
+            last_wet_dry    = wet_dry_val;
+            last_menu_a     = menu_a;
+            last_menu_b     = menu_b;
+            last_menu_sw    = menu_sw;
+            last_rate_a     = rate_a;
+            last_rate_b     = rate_b;
+            last_rate_sw    = rate_sw;
+            last_rot        = rot_pos;
+            last_bak        = bak_val;
+            last_con        = con_val;
             last_midi_count = midi_count;
         }
         else
@@ -473,7 +469,6 @@ void MenuRender(StutterDisplay&       display,
         return;
     }
 
-    /*
     // --- OLED RATE LIMITING ---
     // Cap OLED updates to prevent I2C controller lockup on SSD1309.
     // We allow a slightly faster cadence for menus (10Hz) to keep scrolling responsive,
@@ -489,7 +484,6 @@ void MenuRender(StutterDisplay&       display,
     }
     last_oled = daisy::System::GetNow();
     // ------------------------------------------------------
-    */
 
     display.Fill(false);
 
