@@ -7,7 +7,7 @@
 using namespace daisy;
 using namespace daisysp;
 
-DaisySeed hw;
+DaisySeed       hw;
 MidiUartHandler midi;
 
 // Controls
@@ -20,10 +20,16 @@ int32_t rate_enc_accum = 0;
 GPIO menu_pin_a;
 GPIO menu_pin_b;
 GPIO menu_pin_sw;
+GPIO menu_pin_bak;
+GPIO menu_pin_con;
 
 GPIO rate_pin_a;
 GPIO rate_pin_b;
 GPIO rate_pin_sw;
+
+// Dedicated menu buttons
+Switch button_bak;
+Switch button_con;
 
 // GPIOs for the 5-position rotary switch
 GPIO rot_switch_pins[5];
@@ -136,7 +142,6 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         }
         else if(current_state == STUTTER_PLAYING)
         {
-
             // Fixed-point interpolation
             uint32_t idx  = static_cast<uint32_t>(read_pos_accum);
             float    frac = read_pos_accum - idx;
@@ -194,6 +199,10 @@ void InitControls()
         StutterPins::MENU_ENC_B, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);
     menu_pin_sw.Init(
         StutterPins::MENU_ENC_SW, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);
+    menu_pin_bak.Init(
+        StutterPins::MENU_BAK, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);
+    menu_pin_con.Init(
+        StutterPins::MENU_CON, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);
 
     rate_pin_a.Init(
         StutterPins::RATE_ENC_A, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);
@@ -201,6 +210,10 @@ void InitControls()
         StutterPins::RATE_ENC_B, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);
     rate_pin_sw.Init(
         StutterPins::RATE_ENC_SW, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);
+
+    // Initialize dedicated menu switches (momentary active low with pull-up)
+    button_bak.Init(StutterPins::MENU_BAK, 1000.0f);
+    button_con.Init(StutterPins::MENU_CON, 1000.0f);
 
     // Initialize 5-position rotary switch (Input with Pull-up)
     Pin rot_pins[5] = {StutterPins::ROT_POS_1,
@@ -252,9 +265,10 @@ int main(void)
 
     // Initialize MIDI input
     MidiUartHandler::Config midi_config;
-    midi_config.transport_config.periph = UartHandler::Config::Peripheral::UART_5;
-    midi_config.transport_config.rx     = StutterPins::MIDI_RX;
-    midi_config.transport_config.tx     = Pin(); // input only
+    midi_config.transport_config.periph
+        = UartHandler::Config::Peripheral::UART_5;
+    midi_config.transport_config.rx = StutterPins::MIDI_RX;
+    midi_config.transport_config.tx = Pin(); // input only
     midi.Init(midi_config);
     midi.StartReceive();
 
@@ -288,11 +302,11 @@ int main(void)
     bool     menu_button_held_fired = false;
 
     // MIDI Timing and Tracking Variables
-    uint32_t last_clock_us       = 0;
-    uint32_t last_clock_recv_ms  = 0;
-    float    bpm_smoothed        = 120.0f;
-    bool     first_clock         = true;
-    bool     prev_has_clock      = false;
+    uint32_t last_clock_us      = 0;
+    uint32_t last_clock_recv_ms = 0;
+    float    bpm_smoothed       = 120.0f;
+    bool     first_clock        = true;
+    bool     prev_has_clock     = false;
 
     while(1)
     {
@@ -304,6 +318,8 @@ int main(void)
         // Poll controls
         menu_encoder.Debounce();
         rate_encoder.Debounce();
+        button_bak.Debounce();
+        button_con.Debounce();
 
         menu_enc_accum += menu_encoder.Increment();
         rate_enc_accum += rate_encoder.Increment();
@@ -313,7 +329,8 @@ int main(void)
         if(rate_inc != 0)
         {
             runtime.target_rate += rate_inc * RATE_STEP;
-            runtime.target_rate = fclamp(runtime.target_rate, RATE_MIN, RATE_MAX);
+            runtime.target_rate
+                = fclamp(runtime.target_rate, RATE_MIN, RATE_MAX);
         }
 
         // Handle rate encoder switch as momentary stutter trigger
@@ -343,7 +360,8 @@ int main(void)
                             }
                             else
                             {
-                                bpm_smoothed += 0.05f * (raw_bpm - bpm_smoothed);
+                                bpm_smoothed
+                                    += 0.05f * (raw_bpm - bpm_smoothed);
                             }
                             runtime.has_clock  = true;
                             last_clock_recv_ms = now_ms;
@@ -420,8 +438,9 @@ int main(void)
 
         // Calculate dynamic buffer length based on BPM and subdivision position
         const float SUBDIV_MULTIPLIERS[5] = {0.125f, 0.25f, 0.5f, 1.0f, 2.0f};
-        float beat_duration_sec = 60.0f / runtime.bpm;
-        float subdiv_duration_sec = beat_duration_sec * SUBDIV_MULTIPLIERS[runtime.subdiv_pos];
+        float       beat_duration_sec     = 60.0f / runtime.bpm;
+        float       subdiv_duration_sec
+            = beat_duration_sec * SUBDIV_MULTIPLIERS[runtime.subdiv_pos];
         uint32_t calc_length = (uint32_t)(subdiv_duration_sec * 48000.0f);
         if(calc_length > STUTTER_BUFFER_MAX_SAMPLES)
         {
@@ -467,6 +486,16 @@ int main(void)
             menu_button_held_fired = false;
         }
 
+        // Handle dedicated menu buttons
+        if(button_bak.FallingEdge())
+        {
+            MenuHandleBackPress(&menu_ctx, &config);
+        }
+        if(button_con.FallingEdge())
+        {
+            MenuHandleShortPress(&menu_ctx, &config);
+        }
+
         // Handle dirty configuration storage saves
         if(menu_ctx.dirty)
         {
@@ -486,7 +515,8 @@ int main(void)
         {
             last_print = now_ms;
             hw.PrintLine(
-                "POT: %d.%02d | ROT: %d | RATE [ACC:%d] | MIDI [SYNC:%d CLK:%d BPM:%d.%d]",
+                "POT: %d.%02d | ROT: %d | RATE [ACC:%d] | MIDI [SYNC:%d CLK:%d "
+                "BPM:%d.%d]",
                 pot_whole,
                 pot_frac,
                 rot_pos,

@@ -214,7 +214,7 @@ Displays the live hardware states of the potentiometer, both encoders' buttons, 
 │POT (A0): 0.52    │  y=10  pot value (0.00 to 1.00)
 │MENU A:1 B:0 SW:1 │  y=20  menu encoder pins (A, B) and button (SW, active low/high)
 │RATE A:0 B:1 SW:0 │  y=30  rate encoder pins (A, B) and button (SW)
-│                  │  y=40  (future use)
+│ROT:2 BAK:1 CON:1 │  y=40  rotary switch pos, back button (BAK), confirm button (CON)
 │[>]=BACK          │  y=50  hint to exit
 └──────────────────┘
 ```
@@ -223,29 +223,31 @@ Displays the live hardware states of the potentiometer, both encoders' buttons, 
 - **POT (A0):** Read from the ADC input of the Wet/Dry pot (GPIO D15). Format as `"POT (A0): X.XX"`.
 - **MENU A/B/SW:** Read states of menu encoder A pin (GPIO D1), menu encoder B pin (GPIO D2), and menu encoder button (GPIO D3). `1` = High/Released, `0` = Low/Pressed.
 - **RATE A/B/SW:** Read states of rate encoder A pin (GPIO D9), rate encoder B pin (GPIO D10), and rate encoder button (GPIO D11). `1` = High/Released, `0` = Low/Pressed.
+- **ROT/BAK/CON:** Read the rotary switch index `ROT` (0 to 4), Back button `BAK` pin state (GPIO D25), and Confirm button `CON` pin state (GPIO D26). `1` = High/Released, `0` = Low/Pressed.
 - **Hint:** Show `"[>]=BACK"` to indicate that pressing the encoder button will return to the settings menu.
 ```
 
 ---
 
-### 7.6 Encoder Interaction
+### 7.6 Controls Interaction
 
-Three encoder events to detect and dispatch in the main loop:
+Three encoder events and two hardware button events to detect and dispatch in the main loop:
 
 | Event | Detection |
 |-------|-----------|
 | **Rotate** | Quadrature increment/decrement; ±1 per detent |
-| **Short press** | Button release after hold < 500ms |
-| **Long press** | Button held ≥ 500ms; fire on threshold crossing, not on release |
+| **Short press / CON** | Encoder button release after hold < 500ms, or Confirm button (CON) press |
+| **Long press** | Encoder button held ≥ 500ms; fire on threshold crossing, not on release |
+| **BAK button** | Back button (BAK) press |
 
 **Behavior by state:**
 
-| State | Rotate | Short press | Long press |
-|-------|--------|-------------|------------|
-| `STATUS` | ignored | → `BROWSE` | ignored |
-| `BROWSE` | Move cursor ±1, clamp to [0, `MENU_ITEM_COUNT-1`]; reset `idle_timer_ms` | If `cursor == MENU_ITEM_DEBUG` → `DEBUG`<br>Else → `EDIT`, copy config to `edit_shadow` | → `STATUS` |
-| `EDIT` | Toggle/cycle value of `cfg[cursor]` (see below) | Commit; set `dirty = true`; → `BROWSE` | Restore `edit_shadow` → `cfg`; → `BROWSE` |
-| `DEBUG` | ignored | → `BROWSE` | → `BROWSE` |
+| State | Rotate | Short press / CON | Long press | BAK button |
+|-------|--------|-------------------|------------|------------|
+| `STATUS` | ignored | → `BROWSE` | ignored | ignored |
+| `BROWSE` | Move cursor ±1, clamp to [0, `MENU_ITEM_COUNT-1`]; reset `idle_timer_ms` | If `cursor == MENU_ITEM_DEBUG` → `DEBUG`<br>Else → `EDIT`, copy config to `edit_shadow` | → `STATUS` | → `STATUS` |
+| `EDIT` | Toggle/cycle value of `cfg[cursor]` (see below) | Commit; set `dirty = true`; → `BROWSE` | Restore `edit_shadow` → `cfg`; → `BROWSE` | Restore `edit_shadow` → `cfg`; → `BROWSE` |
+| `DEBUG` | ignored | → `BROWSE` | → `BROWSE` | → `BROWSE` |
 
 **Cursor clamping in BROWSE:** Do not wrap — stop at 0 and `MENU_ITEM_COUNT - 1`. This prevents accidentally skipping past the first or last item.
 

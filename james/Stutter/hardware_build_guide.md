@@ -150,6 +150,22 @@ A second rotary encoder, used only for navigating the OLED menu. Same wiring pat
 
 ---
 
+## Confirm (CON) and Back (BAK) Buttons
+
+Two standalone push buttons used for direct navigation and editing functions:
+*   **CON (Confirm)** button: Behaves identically to pushing the menu encoder button. Used to enter menus or save edited values.
+*   **BAK (Back)** button: Used to exit screens, cancel edits, or go back to the previous screen.
+
+### Wiring:
+For each button, connect one terminal to the Daisy Seed pin and the other terminal to the digital ground (**GND**). No external pull-up resistors are required as the firmware enables internal pull-ups on these pins.
+
+| Button | Daisy Pin | Notes |
+|---|---|---|
+| Back (BAK) | **D25** | Active LOW; exits/cancels |
+| Confirm (CON) | **D26** | Active LOW; enters/saves |
+
+---
+
 ## Stutter Indicator LED
 
 A standalone LED (not in a button) that lights up whenever the stutter is active.
@@ -243,6 +259,8 @@ DIN pin 5 ───────────── │ Pin 2 (cathode)      │  
 | OLED SCL | D13 | I2C | Fixed I2C1 SCL pin |
 | OLED SDA | D14 | I2C | Fixed I2C1 SDA pin |
 | Wet/Dry pot | A0 / D15 | Analog in | Wiper of pot; ends to AGND and 3V3A |
+| Back button (BAK) | D25 | Input | Internal pull-up; active LOW |
+| Confirm button (CON) | D26 | Input | Internal pull-up; active LOW |
 | Audio In L | Audio In L | Analog in | Via 10µF DC-block cap; jack sleeve to AGND |
 | Audio In R | Audio In R | Analog in | Via 10µF DC-block cap; jack sleeve to AGND |
 | Audio Out L | Audio Out L | Analog out | Via 10µF DC-block cap; jack sleeve to AGND |
@@ -264,6 +282,7 @@ DIN pin 5 ───────────── │ Pin 2 (cathode)      │  
 - [ ] Rotary switch common goes to GND (not 3V3)
 - [ ] Both encoder common/C pins go to GND (not 3V3)
 - [ ] Rate encoder push (D11) is the stutter trigger — no separate trigger button
+- [ ] Confirm and Back button ground terminals are connected to GND
 
 ---
 

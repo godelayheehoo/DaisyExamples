@@ -78,6 +78,8 @@
 | GPIO D12 (digital out) | Stutter indicator LED |
 | I2C D13 | OLED SCL (I2C1, fixed pin) |
 | I2C D14 | OLED SDA (I2C1, fixed pin) |
+| GPIO D25 (digital in, pull-up) | Menu Back button (active low) |
+| GPIO D26 (digital in, pull-up) | Menu Confirm button (active low) |
 
 > **Note:** The 5-position rotary switch is wired one-hot: common terminal → GND, each position terminal → one GPIO with internal pull-up. The active position reads LOW; all others read HIGH.
 

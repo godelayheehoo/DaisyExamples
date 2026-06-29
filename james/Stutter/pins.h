@@ -81,6 +81,13 @@ constexpr daisy::Pin OLED_SDA = daisy::seed::D14; // I2C1 SDA (fixed)
 // -------------------------------------------------------------------------
 constexpr daisy::Pin WET_DRY_POT = daisy::seed::A0; // D15 — Wet/Dry knob wiper
 
+// -------------------------------------------------------------------------
+// ADDITIONAL MENU BUTTONS (Confirm and Back)
+// Configure as INPUT with PULLUP. Reads LOW when pressed.
+// -------------------------------------------------------------------------
+constexpr daisy::Pin MENU_BAK = daisy::seed::D25; // active LOW
+constexpr daisy::Pin MENU_CON = daisy::seed::D26; // active LOW
+
 } // namespace StutterPins
 
 

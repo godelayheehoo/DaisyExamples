@@ -230,7 +230,12 @@ static void RenderDebugScreen(StutterDisplay&       display,
             break;
         }
     }
-    snprintf(buf, sizeof(buf), "ROTARY: %d         ", rot_pos);
+    snprintf(buf,
+             sizeof(buf),
+             "ROT:%d BAK:%d CON:%d ",
+             rot_pos,
+             menu_pin_bak.Read(),
+             menu_pin_con.Read());
     display.SetCursor(0, 40);
     display.WriteString(buf, Font_7x10, true);
 
@@ -347,6 +352,28 @@ void MenuHandleLongPress(MenuContext* ctx, PedalConfig* cfg)
     }
 }
 
+void MenuHandleBackPress(MenuContext* ctx, PedalConfig* cfg)
+{
+    ctx->idle_timer_ms = 0;
+    switch(ctx->state)
+    {
+        case MENU_STATE_STATUS: break;
+        case MENU_STATE_BROWSE:
+            ctx->state        = MENU_STATE_STATUS;
+            ctx->needs_redraw = true;
+            break;
+        case MENU_STATE_EDIT:
+            *cfg              = ctx->edit_shadow;
+            ctx->state        = MENU_STATE_BROWSE;
+            ctx->needs_redraw = true;
+            break;
+        case MENU_STATE_DEBUG:
+            ctx->state        = MENU_STATE_BROWSE;
+            ctx->needs_redraw = true;
+            break;
+    }
+}
+
 void MenuRender(StutterDisplay&       display,
                 const MenuContext*    ctx,
                 const PedalConfig*    cfg,
@@ -403,6 +430,7 @@ void MenuRender(StutterDisplay&       display,
         static int   last_menu_a = -1, last_menu_b = -1, last_menu_sw = -1;
         static int   last_rate_a = -1, last_rate_b = -1, last_rate_sw = -1;
         static int   last_rot = -1;
+        static int   last_bak = -1, last_con = -1;
 
         float wet_dry_val = 1.0f - hw.adc.GetFloat(0);
         int   menu_a      = menu_pin_a.Read();
@@ -411,6 +439,8 @@ void MenuRender(StutterDisplay&       display,
         int   rate_a      = rate_pin_a.Read();
         int   rate_b      = rate_pin_b.Read();
         int   rate_sw     = rate_pin_sw.Read();
+        int   bak_val     = menu_pin_bak.Read();
+        int   con_val     = menu_pin_con.Read();
 
         int rot_pos = -1;
         for(int i = 0; i < 5; i++)
@@ -429,7 +459,8 @@ void MenuRender(StutterDisplay&       display,
         if(diff > 0.01f || menu_a != last_menu_a || menu_b != last_menu_b
            || menu_sw != last_menu_sw || rate_a != last_rate_a
            || rate_b != last_rate_b || rate_sw != last_rate_sw
-           || rot_pos != last_rot || ctx->needs_redraw)
+           || rot_pos != last_rot || bak_val != last_bak || con_val != last_con
+           || ctx->needs_redraw)
         {
             should_redraw = true;
             last_wet_dry  = wet_dry_val;
@@ -440,6 +471,8 @@ void MenuRender(StutterDisplay&       display,
             last_rate_b   = rate_b;
             last_rate_sw  = rate_sw;
             last_rot      = rot_pos;
+            last_bak      = bak_val;
+            last_con      = con_val;
         }
         else
         {
@@ -452,6 +485,7 @@ void MenuRender(StutterDisplay&       display,
         return;
     }
 
+    /*
     // --- OLED RATE LIMITING ---
     // Cap OLED updates to prevent I2C controller lockup on SSD1309.
     // We allow a slightly faster cadence for menus (10Hz) to keep scrolling responsive,
@@ -467,6 +501,7 @@ void MenuRender(StutterDisplay&       display,
     }
     last_oled = daisy::System::GetNow();
     // ------------------------------------------------------
+    */
 
     display.Fill(false);
 

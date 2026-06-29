@@ -74,6 +74,8 @@ typedef struct
 extern daisy::GPIO menu_pin_a;
 extern daisy::GPIO menu_pin_b;
 extern daisy::GPIO menu_pin_sw;
+extern daisy::GPIO menu_pin_bak;
+extern daisy::GPIO menu_pin_con;
 extern daisy::GPIO rate_pin_a;
 extern daisy::GPIO rate_pin_b;
 extern daisy::GPIO rate_pin_sw;
@@ -90,12 +92,13 @@ void MenuInit(MenuContext* ctx);
 // Call from main loop every iteration; elapsed_ms = ms since last call
 void MenuTick(MenuContext* ctx, PedalConfig* cfg, uint32_t elapsed_ms);
 
-// Call from main loop on encoder events
+// Call from main loop on encoder/button events
 void MenuHandleRotate(MenuContext* ctx,
                       PedalConfig* cfg,
                       int          delta); // delta: +1 or -1
 void MenuHandleShortPress(MenuContext* ctx, PedalConfig* cfg);
 void MenuHandleLongPress(MenuContext* ctx, PedalConfig* cfg);
+void MenuHandleBackPress(MenuContext* ctx, PedalConfig* cfg);
 
 // Call from main loop at ~20Hz to render; pass live runtime for STATUS screen
 void MenuRender(StutterDisplay&       display,
