@@ -1,6 +1,7 @@
 #pragma once
 #include "daisy_seed.h"
-#include "dev/oled_ssd130x.h"
+#include "sh1106_driver.h"
+
 
 // Stutter machine states
 typedef enum
@@ -77,8 +78,9 @@ extern daisy::GPIO rate_pin_a;
 extern daisy::GPIO rate_pin_b;
 extern daisy::GPIO rate_pin_sw;
 
+
 // OLED Display Type Definition
-typedef daisy::OledDisplay<daisy::SSD130xI2c128x64Driver> StutterDisplay;
+typedef daisy::OledDisplay<custom_daisy::SH1106I2c128x64Driver> StutterDisplay;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
