@@ -199,7 +199,12 @@ static void RenderDebugScreen(StutterDisplay&       display,
     int   pot_frac    = static_cast<int>((wet_dry_val - pot_whole) * 100.0f);
     if(pot_frac < 0)
         pot_frac = -pot_frac;
-    snprintf(buf, sizeof(buf), "POT (A0): %d.%02d    ", pot_whole, pot_frac);
+    snprintf(buf,
+             sizeof(buf),
+             "POT:%d.%02d MID:%-5lu",
+             pot_whole,
+             pot_frac,
+             rt->midi_event_count % 100000);
     display.SetCursor(0, 10);
     display.WriteString(buf, Font_7x10, true);
 
@@ -410,6 +415,7 @@ void MenuRender(StutterDisplay&       display,
         static int   last_rate_a = -1, last_rate_b = -1, last_rate_sw = -1;
         static int   last_rot = -1;
         static int   last_bak = -1, last_con = -1;
+        static uint32_t last_midi_count = 0;
 
         float wet_dry_val = 1.0f - hw.adc.GetFloat(0);
         int   menu_a      = menu_pin_a.Read();
@@ -420,6 +426,7 @@ void MenuRender(StutterDisplay&       display,
         int   rate_sw     = rate_pin_sw.Read();
         int   bak_val     = menu_pin_bak.Read();
         int   con_val     = menu_pin_con.Read();
+        uint32_t midi_count = rt->midi_event_count;
 
         int rot_pos = -1;
         for(int i = 0; i < 5; i++)
@@ -439,6 +446,7 @@ void MenuRender(StutterDisplay&       display,
            || menu_sw != last_menu_sw || rate_a != last_rate_a
            || rate_b != last_rate_b || rate_sw != last_rate_sw
            || rot_pos != last_rot || bak_val != last_bak || con_val != last_con
+           || midi_count != last_midi_count
            || ctx->needs_redraw)
         {
             should_redraw = true;
@@ -452,6 +460,7 @@ void MenuRender(StutterDisplay&       display,
             last_rot      = rot_pos;
             last_bak      = bak_val;
             last_con      = con_val;
+            last_midi_count = midi_count;
         }
         else
         {

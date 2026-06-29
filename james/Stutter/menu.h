@@ -40,6 +40,7 @@ typedef struct
     volatile float bpm;                  // current tempo in BPM
     volatile bool  has_clock;            // true if MIDI clock is active
     volatile int   subdiv_pos; // current loop length rotary position (0-4)
+    volatile uint32_t midi_event_count; // total MIDI events processed
 } StutterRuntime;
 
 typedef enum

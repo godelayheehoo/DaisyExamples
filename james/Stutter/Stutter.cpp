@@ -282,6 +282,7 @@ int main(void)
     runtime.bpm            = 120.0f;
     runtime.has_clock      = false;
     runtime.subdiv_pos     = 2; // Default to 1/8 note
+    runtime.midi_event_count = 0;
 
     // Start peripherals
     hw.adc.Start();
@@ -340,6 +341,7 @@ int main(void)
         while(midi.HasEvents())
         {
             MidiEvent msg = midi.PopEvent();
+            runtime.midi_event_count++;
             if(msg.type == SystemRealTime)
             {
                 if(msg.srt_type == TimingClock)
