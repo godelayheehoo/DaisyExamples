@@ -365,14 +365,23 @@ void MenuRender(StutterDisplay&       display,
         static bool         last_has_clock   = false;
         static int          last_subdiv      = -1;
 
-        float rate_diff = rt->rate - last_rate; if(rate_diff < 0) rate_diff = -rate_diff;
-        float target_rate_diff = rt->target_rate - last_target_rate; if(target_rate_diff < 0) target_rate_diff = -target_rate_diff;
-        float wet_diff = rt->wet - last_wet; if(wet_diff < 0) wet_diff = -wet_diff;
-        float bpm_diff = rt->bpm - last_bpm; if(bpm_diff < 0) bpm_diff = -bpm_diff;
+        float rate_diff = rt->rate - last_rate;
+        if(rate_diff < 0)
+            rate_diff = -rate_diff;
+        float target_rate_diff = rt->target_rate - last_target_rate;
+        if(target_rate_diff < 0)
+            target_rate_diff = -target_rate_diff;
+        float wet_diff = rt->wet - last_wet;
+        if(wet_diff < 0)
+            wet_diff = -wet_diff;
+        float bpm_diff = rt->bpm - last_bpm;
+        if(bpm_diff < 0)
+            bpm_diff = -bpm_diff;
 
-        if(rt->state != last_state || rate_diff > 0.01f || target_rate_diff > 0.01f
-           || wet_diff > 0.01f || bpm_diff > 0.1f || rt->has_clock != last_has_clock
-           || rt->subdiv_pos != last_subdiv || ctx->needs_redraw)
+        if(rt->state != last_state || rate_diff > 0.01f
+           || target_rate_diff > 0.01f || wet_diff > 0.01f || bpm_diff > 0.1f
+           || rt->has_clock != last_has_clock || rt->subdiv_pos != last_subdiv
+           || ctx->needs_redraw)
         {
             should_redraw    = true;
             last_state       = rt->state;
@@ -417,8 +426,9 @@ void MenuRender(StutterDisplay&       display,
         if(diff < 0)
             diff = -diff;
 
-        if(diff > 0.01f || menu_a != last_menu_a || menu_b != last_menu_b || menu_sw != last_menu_sw
-           || rate_a != last_rate_a || rate_b != last_rate_b || rate_sw != last_rate_sw
+        if(diff > 0.01f || menu_a != last_menu_a || menu_b != last_menu_b
+           || menu_sw != last_menu_sw || rate_a != last_rate_a
+           || rate_b != last_rate_b || rate_sw != last_rate_sw
            || rot_pos != last_rot || ctx->needs_redraw)
         {
             should_redraw = true;
@@ -449,7 +459,7 @@ void MenuRender(StutterDisplay&       display,
     uint32_t oled_period = (ctx->state == MENU_STATE_STATUS) ? 200 : 100;
 
     static uint32_t last_oled = 0;
-    if (daisy::System::GetNow() - last_oled < oled_period)
+    if(daisy::System::GetNow() - last_oled < oled_period)
     {
         // Skip drawing if it hasn't been long enough.
         // We don't reset needs_redraw so it will try again next tick.
