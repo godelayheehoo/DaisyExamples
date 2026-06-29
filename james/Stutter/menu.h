@@ -97,7 +97,6 @@ void MenuHandleRotate(MenuContext* ctx,
                       PedalConfig* cfg,
                       int          delta); // delta: +1 or -1
 void MenuHandleShortPress(MenuContext* ctx, PedalConfig* cfg);
-void MenuHandleLongPress(MenuContext* ctx, PedalConfig* cfg);
 void MenuHandleBackPress(MenuContext* ctx, PedalConfig* cfg);
 
 // Call from main loop at ~20Hz to render; pass live runtime for STATUS screen

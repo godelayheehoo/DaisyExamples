@@ -31,38 +31,33 @@ Four screens exist. Only one is active at a time.
 ### 7.3 Menu State Machine
 
 ```
-              [short press]              [short press]
+              [short press / CON]        [short press / CON]
   STATUS ───────────────────→ BROWSE ───────────────────→ EDIT
-    ↑                            │  (if not DEBUG)           │
-    │     [5s idle timeout]      ├───────────────────────────┤ [short press = confirm]
-    │                            │  (if DEBUG)               │
-    │                            ▼                           │
-    │                          DEBUG                         │
-    │                            │                           │
-    │     [long press ≥500ms]    │  [short press / long]     │
-    └────────────────────────────┼───────────────────────────┘
-                                 │  [press = back]
-                                 ▼
-                               BROWSE
+    ↑                            │                             │
+    │                            ├─────────────────────────────┤ [short press / CON = confirm]
+    │     [5s idle timeout /     │ (if cursor is DEBUG)        │
+    │      BAK]                  ▼                             │
+    └────────────────────────── DEBUG                          │
+                                 │                             │
+                                 └─ [BAK / short press / CON] ─┘
 ```
 
 **Transition rules:**
 
 | From | Event | To | Side effect |
 |------|-------|----|-------------|
-| `STATUS` | Short press | `BROWSE` | Reset `idle_timer_ms` to 0 |
+| `STATUS` | Short press / CON | `BROWSE` | Reset `idle_timer_ms` to 0 |
 | `BROWSE` | Encoder rotate | `BROWSE` | Move cursor; reset `idle_timer_ms` |
-| `BROWSE` | Short press | `EDIT` | Copy current `PedalConfig` into `edit_shadow` (if cursor is not on `DEBUG` item) |
-| `BROWSE` | Short press | `DEBUG` | Transition to debug screen (if cursor is on `DEBUG` item) |
-| `BROWSE` | Long press ≥500ms | `STATUS` | — |
+| `BROWSE` | Short press / CON | `EDIT` | Copy current `PedalConfig` into `edit_shadow` (if cursor is not on `DEBUG` item) |
+| `BROWSE` | Short press / CON | `DEBUG` | Transition to debug screen (if cursor is on `DEBUG` item) |
+| `BROWSE` | BAK | `STATUS` | — |
 | `BROWSE` | Idle timeout (5s) | `STATUS` | — |
 | `EDIT` | Encoder rotate | `EDIT` | Cycle/toggle value of selected item |
-| `EDIT` | Short press | `BROWSE` | Commit value to `PedalConfig`; set `dirty = true` |
-| `EDIT` | Long press ≥500ms | `BROWSE` | Restore `edit_shadow` into `PedalConfig`; discard changes |
-| `DEBUG` | Short press | `BROWSE` | — |
-| `DEBUG` | Long press ≥500ms | `BROWSE` | — |
+| `EDIT` | Short press / CON | `BROWSE` | Commit value to `PedalConfig`; set `dirty = true` |
+| `EDIT` | BAK | `BROWSE` | Restore `edit_shadow` into `PedalConfig`; discard changes |
+| `DEBUG` | BAK / Short press / CON | `BROWSE` | — |
 
-**Note:** There is no auto-timeout from `EDIT`. The user must explicitly confirm (short press) or cancel (long press).
+**Note:** There is no auto-timeout from `EDIT`. The user must explicitly confirm (short press / CON) or cancel (BAK).
 
 ---
 
@@ -144,7 +139,7 @@ Operational at-a-glance view. Updated every render cycle from live runtime value
 │  QUANTIZE    OFF │  y=20  item 1
 │                  │  y=30  (future item slot)
 │                  │  y=40  (future item slot)
-│[>]=SEL [H]=BACK  │  y=50  control hints; [H] = long press
+│[>]=SEL [B]=BACK  │  y=50  control hints; [B] = Back button
 └──────────────────┘
 ```
 
@@ -236,18 +231,17 @@ Three encoder events and two hardware button events to detect and dispatch in th
 | Event | Detection |
 |-------|-----------|
 | **Rotate** | Quadrature increment/decrement; ±1 per detent |
-| **Short press / CON** | Encoder button release after hold < 500ms, or Confirm button (CON) press |
-| **Long press** | Encoder button held ≥ 500ms; fire on threshold crossing, not on release |
+| **Short press / CON** | Encoder button release, or Confirm button (CON) press |
 | **BAK button** | Back button (BAK) press |
 
 **Behavior by state:**
 
-| State | Rotate | Short press / CON | Long press | BAK button |
-|-------|--------|-------------------|------------|------------|
-| `STATUS` | ignored | → `BROWSE` | ignored | ignored |
-| `BROWSE` | Move cursor ±1, clamp to [0, `MENU_ITEM_COUNT-1`]; reset `idle_timer_ms` | If `cursor == MENU_ITEM_DEBUG` → `DEBUG`<br>Else → `EDIT`, copy config to `edit_shadow` | → `STATUS` | → `STATUS` |
-| `EDIT` | Toggle/cycle value of `cfg[cursor]` (see below) | Commit; set `dirty = true`; → `BROWSE` | Restore `edit_shadow` → `cfg`; → `BROWSE` | Restore `edit_shadow` → `cfg`; → `BROWSE` |
-| `DEBUG` | ignored | → `BROWSE` | → `BROWSE` | → `BROWSE` |
+| State | Rotate | Short press / CON | BAK button |
+|-------|--------|-------------------|------------|
+| `STATUS` | ignored | → `BROWSE` | ignored |
+| `BROWSE` | Move cursor ±1, clamp to [0, `MENU_ITEM_COUNT-1`]; reset `idle_timer_ms` | If `cursor == MENU_ITEM_DEBUG` → `DEBUG`<br>Else → `EDIT`, copy config to `edit_shadow` | → `STATUS` |
+| `EDIT` | Toggle/cycle value of `cfg[cursor]` (see below) | Commit; set `dirty = true`; → `BROWSE` | Restore `edit_shadow` → `cfg`; → `BROWSE` |
+| `DEBUG` | ignored | → `BROWSE` | → `BROWSE` |
 
 **Cursor clamping in BROWSE:** Do not wrap — stop at 0 and `MENU_ITEM_COUNT - 1`. This prevents accidentally skipping past the first or last item.
 
@@ -388,4 +382,4 @@ The 6-row display supports up to 4 menu items with the current header and hint r
 - **`needs_redraw` optimization is optional.** If the display is rendered at 20 Hz unconditionally, there is no correctness issue. `needs_redraw` can be added later to skip I2C writes on frames where nothing changed, if power or timing budget requires it.
 - **Right-align all numeric values** in their fields. Format floats with `snprintf(buf, sizeof(buf), "%5.2f", val)` to produce exactly 5 chars (e.g., `" 1.00"`, `"12.50"`).
 - **libDaisy `System::GetNow()`** returns milliseconds since boot as a `uint32_t`. Use delta timing (`now - last`) for all timers; don't accumulate absolute time.
-- **Encoder debounce:** libDaisy's `Encoder` class handles quadrature decoding; call `encoder.Debounce()` in the main loop and use `encoder.Increment()` for rotation and `encoder.RisingEdge()` / `encoder.FallingEdge()` for button events. Track button-down timestamp for long-press detection.
+- **Encoder debounce:** libDaisy's `Encoder` class handles quadrature decoding; call `encoder.Debounce()` in the main loop and use `encoder.Increment()` for rotation and `encoder.RisingEdge()` / `encoder.FallingEdge()` for button events.

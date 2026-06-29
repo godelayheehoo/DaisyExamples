@@ -297,9 +297,8 @@ int main(void)
     uint32_t last_print = System::GetNow();
 #endif
 
-    uint32_t last_tick_time         = System::GetNow();
-    uint32_t last_display_ms        = System::GetNow();
-    bool     menu_button_held_fired = false;
+    uint32_t last_tick_time  = System::GetNow();
+    uint32_t last_display_ms = System::GetNow();
 
     // MIDI Timing and Tracking Variables
     uint32_t last_clock_us      = 0;
@@ -465,25 +464,10 @@ int main(void)
             MenuHandleRotate(&menu_ctx, &config, menu_inc);
         }
 
-        // Dispatch Menu Encoder press events (Short vs Long press detection)
-        if(menu_encoder.Pressed())
+        // Dispatch Menu Encoder press events
+        if(menu_encoder.FallingEdge())
         {
-            if(!menu_button_held_fired && menu_encoder.TimeHeldMs() >= 500.0f)
-            {
-                MenuHandleLongPress(&menu_ctx, &config);
-                menu_button_held_fired = true;
-            }
-        }
-        else
-        {
-            if(menu_encoder.FallingEdge())
-            {
-                if(!menu_button_held_fired)
-                {
-                    MenuHandleShortPress(&menu_ctx, &config);
-                }
-            }
-            menu_button_held_fired = false;
+            MenuHandleShortPress(&menu_ctx, &config);
         }
 
         // Handle dedicated menu buttons

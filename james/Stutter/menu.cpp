@@ -148,7 +148,7 @@ static void RenderBrowseScreen(StutterDisplay&    display,
     display.SetCursor(0, 40);
     display.WriteString("                  ", Font_7x10, true);
     display.SetCursor(0, 50);
-    display.WriteString("[>]=SEL [H]=BACK  ", Font_7x10, true);
+    display.WriteString("[>]=SEL [B]=BACK  ", Font_7x10, true);
 }
 
 static void RenderEditScreen(StutterDisplay&    display,
@@ -180,7 +180,7 @@ static void RenderEditScreen(StutterDisplay&    display,
     display.SetCursor(0, 40);
     display.WriteString("                  ", Font_7x10, true);
     display.SetCursor(0, 50);
-    display.WriteString("[>]=OK [H]=CNCL   ", Font_7x10, true);
+    display.WriteString("[>]=OK [B]=CNCL   ", Font_7x10, true);
 }
 
 static void RenderDebugScreen(StutterDisplay&       display,
@@ -330,27 +330,6 @@ void MenuHandleShortPress(MenuContext* ctx, PedalConfig* cfg)
     }
 }
 
-void MenuHandleLongPress(MenuContext* ctx, PedalConfig* cfg)
-{
-    ctx->idle_timer_ms = 0;
-    switch(ctx->state)
-    {
-        case MENU_STATE_STATUS: break;
-        case MENU_STATE_BROWSE:
-            ctx->state        = MENU_STATE_STATUS;
-            ctx->needs_redraw = true;
-            break;
-        case MENU_STATE_EDIT:
-            *cfg              = ctx->edit_shadow;
-            ctx->state        = MENU_STATE_BROWSE;
-            ctx->needs_redraw = true;
-            break;
-        case MENU_STATE_DEBUG:
-            ctx->state        = MENU_STATE_BROWSE;
-            ctx->needs_redraw = true;
-            break;
-    }
-}
 
 void MenuHandleBackPress(MenuContext* ctx, PedalConfig* cfg)
 {
