@@ -359,5 +359,15 @@ void MenuRender(StutterDisplay&       display,
         case MENU_STATE_DEBUG: RenderDebugScreen(display, ctx, cfg, rt); break;
     }
 
+#ifdef DEBUG_MODE
+    uint32_t start_ms = daisy::System::GetNow();
+
+    hw.PrintLine("OLED Update Start: %d ms", start_ms);
+#endif
     display.Update();
+#ifdef DEBUG_MODE
+    uint32_t end_ms = daisy::System::GetNow();
+    hw.PrintLine(
+        "OLED Update Stop: %d ms (took %d ms)", end_ms, end_ms - start_ms);
+#endif
 }

@@ -8,6 +8,7 @@ using namespace daisy;
 using namespace daisysp;
 
 DaisySeed hw;
+MidiUartHandler midi;
 
 // Controls
 Encoder menu_encoder;
@@ -27,6 +28,14 @@ GPIO rate_pin_sw;
 // GPIOs for the 5-position rotary switch
 GPIO rot_switch_pins[5];
 
+// LED indicator
+GPIO stutter_led;
+
+// Stutter buffers in external SDRAM
+#define STUTTER_BUFFER_MAX_SAMPLES 100000
+float DSY_SDRAM_BSS stutter_buf_l[STUTTER_BUFFER_MAX_SAMPLES];
+float DSY_SDRAM_BSS stutter_buf_r[STUTTER_BUFFER_MAX_SAMPLES];
+
 // Initialize ADC configuration
 AdcChannelConfig adc_config[NUM_ADC_CHANNELS];
 
@@ -44,10 +53,127 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
                    size_t                    size)
 {
+    static uint32_t write_pos            = 0;
+    static float    read_pos_accum       = 0.0f;
+    static uint32_t active_buffer_length = 48000;
+
     for(size_t i = 0; i < size; i++)
     {
-        out[0][i] = in[0][i];
-        out[1][i] = in[1][i];
+        float in_l = in[0][i];
+        float in_r = in[1][i];
+
+        float out_l = in_l;
+        float out_r = in_r;
+
+        // Local copies of runtime states (volatile)
+        StutterState current_state = runtime.state;
+        bool         trigger       = runtime.trigger_active;
+        float        target_rate   = runtime.target_rate;
+        float        wet           = runtime.wet;
+
+        // Smooth rate towards target at all times to keep runtime.rate updated
+        runtime.rate += 0.001f * (target_rate - runtime.rate);
+        float current_rate = runtime.rate;
+
+        // Handle State Transitions
+        if(current_state == STUTTER_IDLE)
+        {
+            if(trigger)
+            {
+                // Transition: IDLE -> RECORDING
+                current_state        = STUTTER_RECORDING;
+                write_pos            = 0;
+                active_buffer_length = runtime.buffer_length;
+                runtime.state        = STUTTER_RECORDING;
+            }
+        }
+        else if(current_state == STUTTER_RECORDING)
+        {
+            if(!trigger)
+            {
+                // Aborted before recording completed
+                current_state = STUTTER_IDLE;
+                runtime.state = STUTTER_IDLE;
+            }
+        }
+        else if(current_state == STUTTER_PLAYING)
+        {
+            if(!trigger)
+            {
+                // Released stutter button
+                current_state = STUTTER_IDLE;
+                runtime.state = STUTTER_IDLE;
+            }
+        }
+
+        // Process current state
+        if(current_state == STUTTER_IDLE)
+        {
+            out_l = in_l;
+            out_r = in_r;
+        }
+        else if(current_state == STUTTER_RECORDING)
+        {
+            // Record current input into buffer
+            if(write_pos < STUTTER_BUFFER_MAX_SAMPLES)
+            {
+                stutter_buf_l[write_pos] = in_l;
+                stutter_buf_r[write_pos] = in_r;
+            }
+            write_pos++;
+
+            // If recording buffer is full, transition to PLAYING
+            if(write_pos >= active_buffer_length)
+            {
+                current_state  = STUTTER_PLAYING;
+                runtime.state  = STUTTER_PLAYING;
+                read_pos_accum = 0.0f;
+            }
+
+            // Output dry signal during recording phase
+            out_l = in_l;
+            out_r = in_r;
+        }
+        else if(current_state == STUTTER_PLAYING)
+        {
+
+            // Fixed-point interpolation
+            uint32_t idx  = static_cast<uint32_t>(read_pos_accum);
+            float    frac = read_pos_accum - idx;
+            uint32_t idx1 = idx + 1;
+
+            if(idx >= active_buffer_length)
+            {
+                idx = 0;
+            }
+            if(idx1 >= active_buffer_length)
+            {
+                idx1 = 0;
+            }
+
+            float play_l = stutter_buf_l[idx]
+                           + frac * (stutter_buf_l[idx1] - stutter_buf_l[idx]);
+            float play_r = stutter_buf_r[idx]
+                           + frac * (stutter_buf_r[idx1] - stutter_buf_r[idx]);
+
+            // Advance playback position
+            read_pos_accum += current_rate;
+            if(read_pos_accum >= active_buffer_length)
+            {
+                read_pos_accum -= active_buffer_length;
+                if(read_pos_accum >= active_buffer_length)
+                {
+                    read_pos_accum = 0.0f;
+                }
+            }
+
+            // Apply wet/dry mix
+            out_l = (in_l * (1.0f - wet)) + (play_l * wet);
+            out_r = (in_r * (1.0f - wet)) + (play_r * wet);
+        }
+
+        out[0][i] = out_l;
+        out[1][i] = out_r;
     }
 }
 
@@ -91,6 +217,9 @@ void InitControls()
     // Initialize ADC for the Wet/Dry pot
     adc_config[ADC_WET_DRY_POT].InitSingle(StutterPins::WET_DRY_POT);
     hw.adc.Init(adc_config, NUM_ADC_CHANNELS);
+
+    // Initialize stutter indicator LED
+    stutter_led.Init(StutterPins::STUTTER_LED, GPIO::Mode::OUTPUT);
 }
 
 void InitOled()
@@ -121,6 +250,14 @@ int main(void)
     InitOled();
     MenuInit(&menu_ctx);
 
+    // Initialize MIDI input
+    MidiUartHandler::Config midi_config;
+    midi_config.transport_config.periph = UartHandler::Config::Peripheral::UART_5;
+    midi_config.transport_config.rx     = StutterPins::MIDI_RX;
+    midi_config.transport_config.tx     = Pin(); // input only
+    midi.Init(midi_config);
+    midi.StartReceive();
+
     // Initialize Stutter runtime states
     runtime.state          = STUTTER_IDLE;
     runtime.rate           = 1.0f;
@@ -150,6 +287,13 @@ int main(void)
     uint32_t last_display_ms        = System::GetNow();
     bool     menu_button_held_fired = false;
 
+    // MIDI Timing and Tracking Variables
+    uint32_t last_clock_us       = 0;
+    uint32_t last_clock_recv_ms  = 0;
+    float    bpm_smoothed        = 120.0f;
+    bool     first_clock         = true;
+    bool     prev_has_clock      = false;
+
     while(1)
     {
         // Compute delta time in milliseconds
@@ -163,6 +307,89 @@ int main(void)
 
         menu_enc_accum += menu_encoder.Increment();
         rate_enc_accum += rate_encoder.Increment();
+
+        // Handle rate encoder rotation to adjust target playback rate
+        int32_t rate_inc = rate_encoder.Increment();
+        if(rate_inc != 0)
+        {
+            runtime.target_rate += rate_inc * RATE_STEP;
+            runtime.target_rate = fclamp(runtime.target_rate, RATE_MIN, RATE_MAX);
+        }
+
+        // Handle rate encoder switch as momentary stutter trigger
+        runtime.trigger_active = rate_encoder.Pressed();
+
+        // Process MIDI events
+        midi.Listen();
+        while(midi.HasEvents())
+        {
+            MidiEvent msg = midi.PopEvent();
+            if(msg.type == SystemRealTime)
+            {
+                if(msg.srt_type == TimingClock)
+                {
+                    uint32_t now_us = System::GetUs();
+                    if(last_clock_us != 0)
+                    {
+                        uint32_t elapsed_us = now_us - last_clock_us;
+                        // Outlier filter: accept only between 30 and 300 BPM (8,333us to 83,333us)
+                        if(elapsed_us >= 8333 && elapsed_us <= 83333)
+                        {
+                            float raw_bpm = 2500000.0f / elapsed_us;
+                            if(first_clock)
+                            {
+                                bpm_smoothed = raw_bpm;
+                                first_clock  = false;
+                            }
+                            else
+                            {
+                                bpm_smoothed += 0.05f * (raw_bpm - bpm_smoothed);
+                            }
+                            runtime.has_clock  = true;
+                            last_clock_recv_ms = now_ms;
+                        }
+                    }
+                    else
+                    {
+                        first_clock = true;
+                    }
+                    last_clock_us = now_us;
+                }
+                else if(msg.srt_type == Start || msg.srt_type == Continue)
+                {
+                    first_clock = true;
+                }
+            }
+        }
+
+        // MIDI clock timeout check (2 seconds)
+        if(runtime.has_clock && (now_ms - last_clock_recv_ms > 2000))
+        {
+            runtime.has_clock = false;
+            first_clock       = true;
+            last_clock_us     = 0;
+        }
+
+        // Print log when MIDI clock status transitions
+        if(runtime.has_clock && !prev_has_clock)
+        {
+            hw.PrintLine("MIDI Clock Active. BPM: %d", (int)bpm_smoothed);
+        }
+        else if(!runtime.has_clock && prev_has_clock)
+        {
+            hw.PrintLine("MIDI Clock Timeout. Reverting to internal BPM.");
+        }
+        prev_has_clock = runtime.has_clock;
+
+        // Set active BPM based on configuration and clock availability
+        if(config.midi_sync_enabled && runtime.has_clock)
+        {
+            runtime.bpm = bpm_smoothed;
+        }
+        else
+        {
+            runtime.bpm = 120.0f;
+        }
 
         // Get pot float value (0.0 to 1.0), inverted so CW increases value
         float wet_dry_val = 1.0f - hw.adc.GetFloat(ADC_WET_DRY_POT);
@@ -190,6 +417,24 @@ int main(void)
         {
             runtime.subdiv_pos = rot_pos;
         }
+
+        // Calculate dynamic buffer length based on BPM and subdivision position
+        const float SUBDIV_MULTIPLIERS[5] = {0.125f, 0.25f, 0.5f, 1.0f, 2.0f};
+        float beat_duration_sec = 60.0f / runtime.bpm;
+        float subdiv_duration_sec = beat_duration_sec * SUBDIV_MULTIPLIERS[runtime.subdiv_pos];
+        uint32_t calc_length = (uint32_t)(subdiv_duration_sec * 48000.0f);
+        if(calc_length > STUTTER_BUFFER_MAX_SAMPLES)
+        {
+            calc_length = STUTTER_BUFFER_MAX_SAMPLES;
+        }
+        else if(calc_length < 1)
+        {
+            calc_length = 1;
+        }
+        runtime.buffer_length = calc_length;
+
+        // Drive stutter indicator LED
+        stutter_led.Write(runtime.state != STUTTER_IDLE);
 
         // Tick menu idle timers
         MenuTick(&menu_ctx, &config, elapsed_ms);
@@ -241,19 +486,15 @@ int main(void)
         {
             last_print = now_ms;
             hw.PrintLine(
-                "POT: %d.%02d | ROT: %d | MENU [A:%d B:%d SW:%d ACC:%d] | RATE "
-                "[A:%d B:%d SW:%d ACC:%d]",
+                "POT: %d.%02d | ROT: %d | RATE [ACC:%d] | MIDI [SYNC:%d CLK:%d BPM:%d.%d]",
                 pot_whole,
                 pot_frac,
                 rot_pos,
-                menu_pin_a.Read(),
-                menu_pin_b.Read(),
-                menu_pin_sw.Read(),
-                static_cast<int>(menu_enc_accum),
-                rate_pin_a.Read(),
-                rate_pin_b.Read(),
-                rate_pin_sw.Read(),
-                static_cast<int>(rate_enc_accum));
+                static_cast<int>(rate_enc_accum),
+                config.midi_sync_enabled,
+                runtime.has_clock,
+                (int)runtime.bpm,
+                (int)((runtime.bpm - (int)runtime.bpm) * 10.0f));
         }
 #endif
 
