@@ -23,6 +23,17 @@ static const char* GetSubdivString(int pos)
     }
 }
 
+static const char* GetRateModeString(uint8_t mode)
+{
+    switch(mode)
+    {
+        case PRM_OFF: return "  OFF";
+        case PRM_LFQ: return "  LFQ";
+        case PRM_PTQ: return "  PTQ";
+        default: return "  OFF";
+    }
+}
+
 static void RenderItemRow(StutterDisplay& display,
                           int             y,
                           bool            cursor_here,
@@ -104,11 +115,29 @@ static void RenderStatusScreen(StutterDisplay&       display,
     display.SetCursor(0, 20);
     display.WriteString(buf, Font_7x10, true);
 
-    int rate_whole = static_cast<int>(rt->rate);
-    int rate_frac  = static_cast<int>((rt->rate - rate_whole) * 100.0f);
-    if(rate_frac < 0)
-        rate_frac = -rate_frac;
-    snprintf(buf, sizeof(buf), "RATE: %d.%02d        ", rate_whole, rate_frac);
+    if(rt->playback_rate_mode == PRM_OFF)
+    {
+        int rate_whole = static_cast<int>(rt->rate);
+        int rate_frac  = static_cast<int>((rt->rate - rate_whole) * 100.0f);
+        if(rate_frac < 0)
+            rate_frac = -rate_frac;
+        snprintf(
+            buf, sizeof(buf), "RATE: %d.%02d        ", rate_whole, rate_frac);
+    }
+    else
+    {
+        const char* mode_tag
+            = (rt->playback_rate_mode == PRM_LFQ) ? "LFQ" : "PTQ";
+        int32_t st     = rt->semitone_offset;
+        char    sign   = (st >= 0) ? '+' : '-';
+        int32_t abs_st = (st >= 0) ? st : -st;
+        snprintf(buf,
+                 sizeof(buf),
+                 "RATE: %c%ldst %s   ",
+                 sign,
+                 (long)abs_st,
+                 mode_tag);
+    }
     display.SetCursor(0, 30);
     display.WriteString(buf, Font_7x10, true);
 
@@ -145,13 +174,17 @@ static void RenderBrowseScreen(StutterDisplay&    display,
                   false);
     RenderItemRow(display,
                   30,
+                  ctx->cursor == MENU_ITEM_RATE_MODE,
+                  "RATE MODE ",
+                  GetRateModeString(cfg->playback_rate_mode),
+                  false);
+    RenderItemRow(display,
+                  40,
                   ctx->cursor == MENU_ITEM_DEBUG,
                   "DEBUG     ",
                   "ENTER",
                   false);
 
-    display.SetCursor(0, 40);
-    display.WriteString("                  ", Font_7x10, true);
     display.SetCursor(0, 50);
     display.WriteString("[>]=SEL [B]=BACK  ", Font_7x10, true);
 }
@@ -177,13 +210,17 @@ static void RenderEditScreen(StutterDisplay&    display,
                   ctx->cursor == MENU_ITEM_QUANTIZE_TRIGGER);
     RenderItemRow(display,
                   30,
+                  ctx->cursor == MENU_ITEM_RATE_MODE,
+                  "RATE MODE ",
+                  GetRateModeString(cfg->playback_rate_mode),
+                  ctx->cursor == MENU_ITEM_RATE_MODE);
+    RenderItemRow(display,
+                  40,
                   ctx->cursor == MENU_ITEM_DEBUG,
                   "DEBUG     ",
                   "ENTER",
                   ctx->cursor == MENU_ITEM_DEBUG);
 
-    display.SetCursor(0, 40);
-    display.WriteString("                  ", Font_7x10, true);
     display.SetCursor(0, 50);
     display.WriteString("[>]=OK [B]=CNCL   ", Font_7x10, true);
 }
@@ -303,6 +340,10 @@ void MenuHandleRotate(MenuContext* ctx, PedalConfig* cfg, int delta)
         {
             cfg->quantize_trigger = !cfg->quantize_trigger;
         }
+        else if(ctx->cursor == MENU_ITEM_RATE_MODE)
+        {
+            cfg->playback_rate_mode = (cfg->playback_rate_mode + 1) % PRM_COUNT;
+        }
         ctx->needs_redraw = true;
     }
 }
@@ -381,6 +422,8 @@ void MenuRender(StutterDisplay&       display,
         static bool         last_has_clock   = false;
         static int          last_subdiv      = -1;
         static bool         last_play_seen   = false;
+        static int32_t      last_semitone    = 0;
+        static uint8_t      last_rate_mode   = PRM_OFF;
 
         float rate_diff = rt->rate - last_rate;
         if(rate_diff < 0)
@@ -397,7 +440,10 @@ void MenuRender(StutterDisplay&       display,
            || target_rate_diff > 0.01f || wet_diff > 0.01f
            || cur_bpm_rounded != last_bpm_rounded
            || rt->has_clock != last_has_clock || rt->subdiv_pos != last_subdiv
-           || rt->midi_play_seen != last_play_seen || ctx->needs_redraw)
+           || rt->midi_play_seen != last_play_seen
+           || rt->semitone_offset != last_semitone
+           || rt->playback_rate_mode != last_rate_mode
+           || ctx->needs_redraw)
         {
             should_redraw    = true;
             last_state       = rt->state;
@@ -408,6 +454,8 @@ void MenuRender(StutterDisplay&       display,
             last_has_clock   = rt->has_clock;
             last_subdiv      = rt->subdiv_pos;
             last_play_seen   = rt->midi_play_seen;
+            last_semitone    = rt->semitone_offset;
+            last_rate_mode   = rt->playback_rate_mode;
         }
         else
         {

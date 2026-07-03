@@ -7,6 +7,8 @@
 using namespace daisy;
 using namespace daisysp;
 
+#include <cmath>
+
 DaisySeed       hw;
 MidiUartHandler midi;
 
@@ -54,6 +56,89 @@ StutterRuntime runtime;
 
 // Persistent Storage
 PersistentStorage<PedalConfig> storage(hw.qspi);
+
+// ── Pitch Detection (autocorrelation) ─────────────────────────────────────────
+// Runs in main loop, NOT in audio callback.
+// Operates on the stutter buffer after a capture completes.
+static void RunPitchDetection(uint32_t buffer_length)
+{
+    const float sample_rate = 48000.0f;
+    const float min_freq    = 50.0f;
+    const float max_freq    = 2000.0f;
+
+    uint32_t min_lag = static_cast<uint32_t>(sample_rate / max_freq); // ~24
+    uint32_t max_lag = static_cast<uint32_t>(sample_rate / min_freq); // ~960
+
+    // Clamp max_lag to half the buffer length for meaningful autocorrelation
+    if(max_lag > buffer_length / 2)
+    {
+        max_lag = buffer_length / 2;
+    }
+    if(min_lag >= max_lag)
+    {
+        runtime.pitch_valid      = false;
+        runtime.pitch_confidence = 0.0f;
+        return;
+    }
+
+    // Compute energy of the signal (for normalization)
+    float energy = 0.0f;
+    for(uint32_t i = 0; i < buffer_length; i++)
+    {
+        energy += stutter_buf_l[i] * stutter_buf_l[i];
+    }
+
+    if(energy < 1e-8f)
+    {
+        // Signal is essentially silent
+        runtime.pitch_valid      = false;
+        runtime.pitch_confidence = 0.0f;
+        return;
+    }
+
+    // Compute normalized autocorrelation and find best lag
+    float    best_corr = -1.0f;
+    uint32_t best_lag  = min_lag;
+
+    for(uint32_t lag = min_lag; lag <= max_lag; lag++)
+    {
+        float    sum      = 0.0f;
+        float    energy_a = 0.0f;
+        float    energy_b = 0.0f;
+        uint32_t count    = buffer_length - lag;
+
+        for(uint32_t i = 0; i < count; i++)
+        {
+            sum += stutter_buf_l[i] * stutter_buf_l[i + lag];
+            energy_a += stutter_buf_l[i] * stutter_buf_l[i];
+            energy_b += stutter_buf_l[i + lag] * stutter_buf_l[i + lag];
+        }
+
+        float norm = sqrtf(energy_a * energy_b);
+        float corr = (norm > 1e-8f) ? (sum / norm) : 0.0f;
+
+        if(corr > best_corr)
+        {
+            best_corr = corr;
+            best_lag  = lag;
+        }
+    }
+
+    runtime.pitch_confidence = best_corr;
+    runtime.pitch_valid      = (best_corr > 0.7f);
+
+    if(runtime.pitch_valid)
+    {
+        float freq = sample_rate / static_cast<float>(best_lag);
+
+        // Quantize to nearest MIDI note
+        float midi_note   = 69.0f + 12.0f * log2f(freq / 440.0f);
+        float midi_note_q = roundf(midi_note);
+        float target_freq = 440.0f * powf(2.0f, (midi_note_q - 69.0f) / 12.0f);
+
+        runtime.detected_pitch_hz = target_freq;
+    }
+}
 
 void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
@@ -184,6 +269,19 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                 current_state  = STUTTER_PLAYING;
                 runtime.state  = STUTTER_PLAYING;
                 read_pos_accum = 0.0f;
+
+                // Compute loop frequency for LFQ/PTQ modes
+                runtime.loop_frequency_hz
+                    = 48000.0f / static_cast<float>(active_buffer_length);
+
+                // Request async pitch detection for PTQ mode
+                if(runtime.playback_rate_mode == PRM_PTQ)
+                {
+                    runtime.pitch_detection_pending = true;
+                }
+
+                // Reset semitone offset on new capture
+                runtime.semitone_offset = 0;
             }
 
             // Output dry signal during recording phase
@@ -321,8 +419,9 @@ int main(void)
 
     // Load Configuration from QSPI flash
     PedalConfig default_config;
-    default_config.quantize_trigger  = false;
-    default_config.midi_sync_enabled = 0;
+    default_config.quantize_trigger   = false;
+    default_config.midi_sync_enabled  = 0;
+    default_config.playback_rate_mode = PRM_OFF;
 
     storage.Init(default_config);
     PedalConfig& config = storage.GetSettings();
@@ -342,19 +441,26 @@ int main(void)
     midi.StartReceive();
 
     // Initialize Stutter runtime states
-    runtime.state            = STUTTER_IDLE;
-    runtime.rate             = 1.0f;
-    runtime.target_rate      = 1.0f;
-    runtime.wet              = 0.5f;
-    runtime.buffer_length    = 48000;
-    runtime.trigger_active   = false;
-    runtime.bpm              = 120.0f;
-    runtime.has_clock        = false;
-    runtime.subdiv_pos       = 2; // Default to 1/8 note
-    runtime.midi_event_count = 0;
-    runtime.midi_play_seen   = false;
-    runtime.midi_clock_ticks = 0;
-    runtime.quantize_trigger = config.quantize_trigger;
+    runtime.state                   = STUTTER_IDLE;
+    runtime.rate                    = 1.0f;
+    runtime.target_rate             = 1.0f;
+    runtime.wet                     = 0.5f;
+    runtime.buffer_length           = 48000;
+    runtime.trigger_active          = false;
+    runtime.bpm                     = 120.0f;
+    runtime.has_clock               = false;
+    runtime.subdiv_pos              = 2; // Default to 1/8 note
+    runtime.midi_event_count        = 0;
+    runtime.midi_play_seen          = false;
+    runtime.midi_clock_ticks        = 0;
+    runtime.quantize_trigger        = config.quantize_trigger;
+    runtime.playback_rate_mode      = config.playback_rate_mode;
+    runtime.loop_frequency_hz       = 0.0f;
+    runtime.detected_pitch_hz       = 0.0f;
+    runtime.pitch_confidence        = 0.0f;
+    runtime.pitch_valid             = false;
+    runtime.pitch_detection_pending = false;
+    runtime.semitone_offset         = 0;
 
     // Start peripherals
     hw.adc.Start();
@@ -396,13 +502,50 @@ int main(void)
         menu_enc_accum += menu_encoder.Increment();
         rate_enc_accum += rate_encoder.Increment();
 
-        // Handle rate encoder rotation to adjust target playback rate
+        // Handle rate encoder rotation based on playback rate mode
         int32_t rate_inc = rate_encoder.Increment();
         if(rate_inc != 0)
         {
-            runtime.target_rate += rate_inc * RATE_STEP;
-            runtime.target_rate
-                = fclamp(runtime.target_rate, RATE_MIN, RATE_MAX);
+            uint8_t mode = runtime.playback_rate_mode;
+            if(mode == PRM_OFF)
+            {
+                // Continuous mode: direct rate adjustment
+                runtime.target_rate += rate_inc * RATE_STEP;
+                runtime.target_rate
+                    = fclamp(runtime.target_rate, RATE_MIN, RATE_MAX);
+            }
+            else
+            {
+                // Quantized modes (LFQ or PTQ): adjust semitone offset
+                runtime.semitone_offset += rate_inc;
+                if(runtime.semitone_offset < -24)
+                    runtime.semitone_offset = -24;
+                if(runtime.semitone_offset > 24)
+                    runtime.semitone_offset = 24;
+
+                float rate_from_semitones
+                    = powf(2.0f, runtime.semitone_offset / 12.0f);
+
+                if(mode == PRM_PTQ && runtime.pitch_valid
+                   && runtime.detected_pitch_hz > 0.0f
+                   && runtime.loop_frequency_hz > 0.0f)
+                {
+                    // PTQ: shift relative to detected pitch
+                    float target_freq
+                        = runtime.detected_pitch_hz * rate_from_semitones;
+                    runtime.target_rate
+                        = target_freq / runtime.loop_frequency_hz;
+                }
+                else
+                {
+                    // LFQ (or PTQ fallback): shift relative to loop frequency
+                    runtime.target_rate = rate_from_semitones;
+                }
+
+                // Clamp to safe range
+                runtime.target_rate
+                    = fclamp(runtime.target_rate, RATE_MIN, RATE_MAX);
+            }
         }
 
         // Handle rate encoder switch as momentary stutter trigger
@@ -573,8 +716,31 @@ int main(void)
         if(menu_ctx.dirty)
         {
             storage.Save();
-            menu_ctx.dirty           = false;
-            runtime.quantize_trigger = config.quantize_trigger;
+            menu_ctx.dirty             = false;
+            runtime.quantize_trigger   = config.quantize_trigger;
+            runtime.playback_rate_mode = config.playback_rate_mode;
+        }
+
+        // Run pitch detection asynchronously in main loop (not audio callback)
+        if(runtime.pitch_detection_pending)
+        {
+            runtime.pitch_detection_pending = false;
+            RunPitchDetection(runtime.buffer_length);
+
+            // If PTQ and pitch was detected, recompute target rate at current
+            // semitone offset now that we have a valid pitch reference
+            if(runtime.playback_rate_mode == PRM_PTQ && runtime.pitch_valid
+               && runtime.detected_pitch_hz > 0.0f
+               && runtime.loop_frequency_hz > 0.0f)
+            {
+                float rate_from_semitones
+                    = powf(2.0f, runtime.semitone_offset / 12.0f);
+                float target_freq
+                    = runtime.detected_pitch_hz * rate_from_semitones;
+                runtime.target_rate = target_freq / runtime.loop_frequency_hz;
+                runtime.target_rate
+                    = fclamp(runtime.target_rate, RATE_MIN, RATE_MAX);
+            }
         }
 
         // Render OLED screen at 20 Hz
