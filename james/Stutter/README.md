@@ -95,12 +95,13 @@ For detailed technical designs, refer to the following local markdown files:
 
 The following features and optimizations remain open for implementation:
 
-1. **Trigger Beat-Quantization:**
-   * Current Behavior: Turning QUANTIZE to ON toggles the setting but triggers still execute immediately.
-   * Future Requirement: When QUANTIZE is ON, the audio recording phase must delay starting until the next incoming MIDI clock beat boundary is crossed.
-2. **Buffer Fade-In/Out windowing:**
-   * Implement a micro-fade envelope (5-10ms) on loop boundaries and loop initialization to eliminate clicks or pops when repeating short subdivisions.
-3. **MIDI Clock Out-of-Range Guarding:**
+1. **Buffer Fade-In/Out windowing:**
+   * Implement a micro-fade envelope (5-10ms) on loop boundaries and loop initialization to eliminate clicks or pops when repeating short subdivisions. (may not want this, it sounds fine right now)
+2. **MIDI Clock Out-of-Range Guarding:**
    * Clamp smoothed BPM calculations to a reasonable range (e.g. 40 to 240 BPM) to handle noisy clock sequences gracefully.
-4. **Settings Flash Wear Leveling:**
+3. **Settings Flash Wear Leveling:**
    * Replace simple raw sector writes with a basic wear-leveling wrapper if settings are frequently saved to flash during performance.
+4. **MIDI Controls**
+   * MIDI CC controls/triggers
+5. **Smart rates**
+   * Set modes for rates to match either the dominant pitch in the microloop or the apparent pitch caused by the loop itself and then move in half steps when turning the rate knob.

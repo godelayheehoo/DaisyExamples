@@ -36,11 +36,15 @@ typedef struct
     volatile float        target_rate;   // set by encoder in main loop
     volatile float        wet;           // current wet/dry blend (0.0-1.0)
     volatile uint32_t     buffer_length; // in samples
-    volatile bool  trigger_active;       // true while rate encoder push is held
-    volatile float bpm;                  // current tempo in BPM
-    volatile bool  has_clock;            // true if MIDI clock is active
-    volatile int   subdiv_pos; // current loop length rotary position (0-4)
+    volatile bool     trigger_active;    // true while rate encoder push is held
+    volatile float    bpm;               // current tempo in BPM
+    volatile bool     has_clock;         // true if MIDI clock is active
+    volatile int      subdiv_pos; // current loop length rotary position (0-4)
     volatile uint32_t midi_event_count; // total MIDI events processed
+    volatile bool     midi_play_seen; // true if MIDI Start or Continue received
+    volatile uint32_t midi_clock_ticks; // counts incoming timing clocks
+    volatile bool
+        quantize_trigger; // copy of persistent config flag for audio thread
 } StutterRuntime;
 
 typedef enum

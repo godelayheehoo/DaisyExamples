@@ -104,8 +104,8 @@ Operational at-a-glance view. Updated every render cycle from live runtime value
 ```
 ┌──────────────────┐  ← 18 chars wide
 │STUTTER      IDLE │  y=0   unit name left; state tag right-aligned
-│BPM: 128.0        │  y=10  current BPM (or "BPM: ---" if no clock)
-│SUBDIV: 1/8   FREE│  y=20  subdivision label left; sync mode right ("SYNC"/"FREE")
+│BPM: 128          │  y=10  current BPM (rounded integer or "BPM: ---" if no clock)
+│SUBDIV: 1/8   SYNC│  y=20  subdivision label left; sync mode right ("SYNC"/"CLK "/"WAIT"/"FREE")
 │RATE: 1.00        │  y=30  smoothed rate value, 2 decimal places
 │WET:  0.75        │  y=40  wet/dry blend, 2 decimal places
 │[>]=MENU          │  y=50  static hint
@@ -120,9 +120,13 @@ Operational at-a-glance view. Updated every render cycle from live runtime value
 | `STUTTER_RECORDING` | `"REC "` |
 | `STUTTER_PLAYING` | `"PLAY"` |
 
-**BPM display:** Format to one decimal place (`"BPM: 128.0"`). If no MIDI clock has been received in the last 2 seconds and MIDI sync is enabled, show `"BPM: --- "`.
+**BPM display:** Format as a rounded integer (`"BPM: 128"`). If no MIDI clock has been received in the last 2 seconds and MIDI sync is enabled, show `"BPM: --- "`.
 
-**Sync mode:** Show `"SYNC"` when MIDI sync is active and clock is live; `"FREE"` when free-running (no clock or sync disabled).
+**Sync mode:** 
+* `"FREE"`: Sync is disabled.
+* `"WAIT"`: Sync is enabled, but no MIDI clock is received yet.
+* `"CLK "`: Sync is enabled and clock is active, but no MIDI `Start`/`Continue` (Play/Resume) sequencer command has been received yet.
+* `"SYNC"`: Sync is enabled, clock is active, and sequencer is playing (active beat synchronization).
 
 **Rate value:** Read from `StutterRuntime::rate` (the smoothed value). Format as `"RATE: X.XX"`.
 

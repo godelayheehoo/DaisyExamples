@@ -91,7 +91,14 @@ static void RenderStatusScreen(StutterDisplay&       display,
     const char* sync_mode  = "FREE";
     if(cfg->midi_sync_enabled)
     {
-        sync_mode = rt->has_clock ? "SYNC" : "WAIT";
+        if(rt->has_clock)
+        {
+            sync_mode = rt->midi_play_seen ? "SYNC" : "CLK ";
+        }
+        else
+        {
+            sync_mode = "WAIT";
+        }
     }
     snprintf(buf, sizeof(buf), "SUBDIV: %-4s %4s", subdiv_str, sync_mode);
     display.SetCursor(0, 20);
@@ -373,6 +380,7 @@ void MenuRender(StutterDisplay&       display,
         static int          last_bpm_rounded = -1;
         static bool         last_has_clock   = false;
         static int          last_subdiv      = -1;
+        static bool         last_play_seen   = false;
 
         float rate_diff = rt->rate - last_rate;
         if(rate_diff < 0)
@@ -389,7 +397,7 @@ void MenuRender(StutterDisplay&       display,
            || target_rate_diff > 0.01f || wet_diff > 0.01f
            || cur_bpm_rounded != last_bpm_rounded
            || rt->has_clock != last_has_clock || rt->subdiv_pos != last_subdiv
-           || ctx->needs_redraw)
+           || rt->midi_play_seen != last_play_seen || ctx->needs_redraw)
         {
             should_redraw    = true;
             last_state       = rt->state;
@@ -399,6 +407,7 @@ void MenuRender(StutterDisplay&       display,
             last_bpm_rounded = cur_bpm_rounded;
             last_has_clock   = rt->has_clock;
             last_subdiv      = rt->subdiv_pos;
+            last_play_seen   = rt->midi_play_seen;
         }
         else
         {

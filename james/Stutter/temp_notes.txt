@@ -1,0 +1,8 @@
+Screen wires:
+
+Grey is CON. Then Blue, Green, Purple, Yellow, Orange, Brown, Black, Red
+
+Encoder:
+Red, Brown, yellow, orange, white.  Red is 3v3 obviously.
+
+Switch: Brown, yellow, orange, green, blue. Black in center (obviously).

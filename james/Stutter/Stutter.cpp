@@ -59,9 +59,11 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
                    size_t                    size)
 {
-    static uint32_t write_pos            = 0;
-    static float    read_pos_accum       = 0.0f;
-    static uint32_t active_buffer_length = 48000;
+    static uint32_t write_pos              = 0;
+    static float    read_pos_accum         = 0.0f;
+    static uint32_t active_buffer_length   = 48000;
+    static bool     trigger_pending        = false;
+    static uint32_t last_audio_clock_ticks = 0;
 
     for(size_t i = 0; i < size; i++)
     {
@@ -84,13 +86,61 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // Handle State Transitions
         if(current_state == STUTTER_IDLE)
         {
-            if(trigger)
+            if(trigger_pending)
             {
-                // Transition: IDLE -> RECORDING
-                current_state        = STUTTER_RECORDING;
-                write_pos            = 0;
-                active_buffer_length = runtime.buffer_length;
-                runtime.state        = STUTTER_RECORDING;
+                if(!trigger)
+                {
+                    trigger_pending = false;
+                }
+                else
+                {
+                    uint32_t prev_ticks    = last_audio_clock_ticks;
+                    uint32_t curr_ticks    = runtime.midi_clock_ticks;
+                    last_audio_clock_ticks = curr_ticks;
+
+                    uint32_t subdiv_ticks
+                        = 24; // Default to 1/4 note (24 ticks)
+                    switch(runtime.subdiv_pos)
+                    {
+                        case 0: subdiv_ticks = 3; break;  // 1/32
+                        case 1: subdiv_ticks = 6; break;  // 1/16
+                        case 2: subdiv_ticks = 12; break; // 1/8
+                        case 3: subdiv_ticks = 24; break; // 1/4
+                        case 4: subdiv_ticks = 48; break; // 1/2
+                    }
+
+                    if(curr_ticks != prev_ticks)
+                    {
+                        // Trigger on tick crossing/modulo of subdiv boundary
+                        if((prev_ticks / subdiv_ticks)
+                               != (curr_ticks / subdiv_ticks)
+                           || (curr_ticks % subdiv_ticks == 0))
+                        {
+                            trigger_pending      = false;
+                            current_state        = STUTTER_RECORDING;
+                            write_pos            = 0;
+                            active_buffer_length = runtime.buffer_length;
+                            runtime.state        = STUTTER_RECORDING;
+                        }
+                    }
+                }
+            }
+            else if(trigger)
+            {
+                // Trigger transition: check if we should quantize
+                if(runtime.quantize_trigger && runtime.midi_play_seen)
+                {
+                    trigger_pending        = true;
+                    last_audio_clock_ticks = runtime.midi_clock_ticks;
+                }
+                else
+                {
+                    // Transition immediately
+                    current_state        = STUTTER_RECORDING;
+                    write_pos            = 0;
+                    active_buffer_length = runtime.buffer_length;
+                    runtime.state        = STUTTER_RECORDING;
+                }
             }
         }
         else if(current_state == STUTTER_RECORDING)
@@ -250,6 +300,25 @@ int main(void)
     // Initialize Seed hardware
     hw.Init();
 
+    // Check if BACK and CON are both held at boot to enter bootloader mode
+    GPIO boot_bak, boot_con;
+    boot_bak.Init(StutterPins::MENU_BAK, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);
+    boot_con.Init(StutterPins::MENU_CON, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);
+    hw.DelayMs(10);
+
+    if(!boot_bak.Read() && !boot_con.Read())
+    {
+        // Flash built-in LED 5 times as visual confirmation
+        for(int i = 0; i < 5; i++)
+        {
+            hw.SetLed(true);
+            hw.DelayMs(100);
+            hw.SetLed(false);
+            hw.DelayMs(100);
+        }
+        daisy::System::ResetToBootloader();
+    }
+
     // Load Configuration from QSPI flash
     PedalConfig default_config;
     default_config.quantize_trigger  = false;
@@ -283,6 +352,9 @@ int main(void)
     runtime.has_clock        = false;
     runtime.subdiv_pos       = 2; // Default to 1/8 note
     runtime.midi_event_count = 0;
+    runtime.midi_play_seen   = false;
+    runtime.midi_clock_ticks = 0;
+    runtime.quantize_trigger = config.quantize_trigger;
 
     // Start peripherals
     hw.adc.Start();
@@ -346,6 +418,7 @@ int main(void)
             {
                 if(msg.srt_type == TimingClock)
                 {
+                    runtime.midi_clock_ticks++;
                     uint32_t now_us = System::GetUs();
                     if(last_clock_us != 0)
                     {
@@ -374,9 +447,20 @@ int main(void)
                     }
                     last_clock_us = now_us;
                 }
-                else if(msg.srt_type == Start || msg.srt_type == Continue)
+                else if(msg.srt_type == Start)
                 {
-                    first_clock = true;
+                    runtime.midi_play_seen   = true;
+                    runtime.midi_clock_ticks = 0;
+                    first_clock              = true;
+                }
+                else if(msg.srt_type == Continue)
+                {
+                    runtime.midi_play_seen = true;
+                    first_clock            = true;
+                }
+                else if(msg.srt_type == Stop)
+                {
+                    runtime.midi_play_seen = false;
                 }
             }
         }
@@ -384,9 +468,10 @@ int main(void)
         // MIDI clock timeout check (2 seconds)
         if(runtime.has_clock && (now_ms - last_clock_recv_ms > 2000))
         {
-            runtime.has_clock = false;
-            first_clock       = true;
-            last_clock_us     = 0;
+            runtime.has_clock      = false;
+            first_clock            = true;
+            last_clock_us          = 0;
+            runtime.midi_play_seen = false;
         }
 
         // Print log when MIDI clock status transitions
@@ -488,7 +573,8 @@ int main(void)
         if(menu_ctx.dirty)
         {
             storage.Save();
-            menu_ctx.dirty = false;
+            menu_ctx.dirty           = false;
+            runtime.quantize_trigger = config.quantize_trigger;
         }
 
         // Render OLED screen at 20 Hz
