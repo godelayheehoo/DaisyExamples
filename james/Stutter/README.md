@@ -103,5 +103,3 @@ The following features and optimizations remain open for implementation:
    * Replace simple raw sector writes with a basic wear-leveling wrapper if settings are frequently saved to flash during performance.
 4. **MIDI Controls**
    * MIDI CC controls/triggers
-5. **Smart rates**
-   * Set modes for rates to match either the dominant pitch in the microloop or the apparent pitch caused by the loop itself and then move in half steps when turning the rate knob.

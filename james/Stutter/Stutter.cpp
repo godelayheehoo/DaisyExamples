@@ -163,13 +163,19 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         bool         trigger       = runtime.trigger_active;
         float        target_rate   = runtime.target_rate;
         float        wet           = runtime.wet;
+        bool         bypassed      = runtime.bypassed;
 
         // Smooth rate towards target at all times to keep runtime.rate updated
         runtime.rate += 0.001f * (target_rate - runtime.rate);
         float current_rate = runtime.rate;
 
+        if(bypassed)
+        {
+            out_l = in_l;
+            out_r = in_r;
+        }
         // Handle State Transitions
-        if(current_state == STUTTER_IDLE)
+        else if(current_state == STUTTER_IDLE)
         {
             if(trigger_pending)
             {
@@ -422,6 +428,7 @@ int main(void)
     default_config.quantize_trigger   = false;
     default_config.midi_sync_enabled  = 0;
     default_config.playback_rate_mode = PRM_OFF;
+    default_config.midi_channel       = 1; // Default to MIDI Channel 1
 
     storage.Init(default_config);
     PedalConfig& config = storage.GetSettings();
@@ -461,6 +468,7 @@ int main(void)
     runtime.pitch_valid             = false;
     runtime.pitch_detection_pending = false;
     runtime.semitone_offset         = 0;
+    runtime.bypassed                = false;
 
     // Start peripherals
     hw.adc.Start();
@@ -557,6 +565,20 @@ int main(void)
         {
             MidiEvent msg = midi.PopEvent();
             runtime.midi_event_count++;
+
+            // Channel filter for non-SystemRealTime messages
+            if(msg.type != SystemRealTime)
+            {
+                if(config.midi_channel == 0)
+                {
+                    continue; // MIDI input is disabled (OFF)
+                }
+                if(msg.channel != (config.midi_channel - 1))
+                {
+                    continue; // Message is for another MIDI channel
+                }
+            }
+
             if(msg.type == SystemRealTime)
             {
                 if(msg.srt_type == TimingClock)
@@ -604,6 +626,134 @@ int main(void)
                 else if(msg.srt_type == Stop)
                 {
                     runtime.midi_play_seen = false;
+                }
+            }
+            else if(msg.type == ControlChange)
+            {
+                ControlChangeEvent cc = msg.AsControlChange();
+                uint8_t ctrl = cc.control_number;
+                uint8_t val = cc.value;
+
+                switch(ctrl)
+                {
+                    case 20: // Stutter Trigger (Momentary)
+                        runtime.trigger_active = (val >= 64);
+                        break;
+                    case 21: // Stutter Toggle (Latching)
+                        runtime.trigger_active = (val >= 64);
+                        break;
+                    case 22: // Playback Rate (Continuous)
+                        {
+                            float cc_val = static_cast<float>(val);
+                            if(val <= 64)
+                            {
+                                runtime.target_rate = RATE_MIN + (cc_val / 64.0f) * (1.0f - RATE_MIN);
+                            }
+                            else
+                            {
+                                runtime.target_rate = 1.0f + ((cc_val - 64.0f) / 63.0f) * (RATE_MAX - 1.0f);
+                            }
+                        }
+                        break;
+                    case 23: // Quantized Semitone Offset
+                        {
+                            float norm = (static_cast<float>(val) - 64.0f) / 63.0f;
+                            int semitones = static_cast<int>(roundf(norm * 24.0f));
+                            if(semitones < -24) semitones = -24;
+                            if(semitones > 24) semitones = 24;
+                            runtime.semitone_offset = semitones;
+
+                            // Recalculate target rate if quantized mode is active
+                            uint8_t mode = runtime.playback_rate_mode;
+                            if(mode != PRM_OFF)
+                            {
+                                float rate_from_semitones = powf(2.0f, runtime.semitone_offset / 12.0f);
+                                if(mode == PRM_PTQ && runtime.pitch_valid
+                                   && runtime.detected_pitch_hz > 0.0f
+                                   && runtime.loop_frequency_hz > 0.0f)
+                                {
+                                    float target_freq = runtime.detected_pitch_hz * rate_from_semitones;
+                                    runtime.target_rate = target_freq / runtime.loop_frequency_hz;
+                                }
+                                else
+                                {
+                                    runtime.target_rate = rate_from_semitones;
+                                }
+                                runtime.target_rate = fclamp(runtime.target_rate, RATE_MIN, RATE_MAX);
+                            }
+                        }
+                        break;
+                    case 24: // Wet/Dry Mix
+                        runtime.wet = val / 127.0f;
+                        break;
+                    case 25: // Loop Length subdivision
+                        if(val <= 25) runtime.subdiv_pos = 0;
+                        else if(val <= 50) runtime.subdiv_pos = 1;
+                        else if(val <= 76) runtime.subdiv_pos = 2;
+                        else if(val <= 102) runtime.subdiv_pos = 3;
+                        else runtime.subdiv_pos = 4;
+                        break;
+                    case 26: // MIDI Sync Enable
+                        config.midi_sync_enabled = (val >= 64) ? 1 : 0;
+                        menu_ctx.needs_redraw = true;
+                        menu_ctx.dirty = true;
+                        break;
+                    case 27: // Quantize Trigger Enable
+                        config.quantize_trigger = (val >= 64);
+                        runtime.quantize_trigger = config.quantize_trigger;
+                        menu_ctx.needs_redraw = true;
+                        menu_ctx.dirty = true;
+                        break;
+                    case 28: // Playback Rate Mode
+                        if(val <= 42) config.playback_rate_mode = PRM_OFF;
+                        else if(val <= 85) config.playback_rate_mode = PRM_LFQ;
+                        else config.playback_rate_mode = PRM_PTQ;
+                        runtime.playback_rate_mode = config.playback_rate_mode;
+                        menu_ctx.needs_redraw = true;
+                        menu_ctx.dirty = true;
+                        break;
+                    case 29: // Manual BPM (Tempo)
+                        runtime.bpm = 40.0f + (val / 127.0f) * 200.0f;
+                        break;
+                    case 30: // Clear Loop / Reset
+                        if(val >= 64)
+                        {
+                            runtime.trigger_active = false;
+                            runtime.state = STUTTER_IDLE;
+                        }
+                        break;
+                    case 31: // Bypass / Active
+                        if(val < 64) // Bypass
+                        {
+                            runtime.bypassed = true;
+                            runtime.trigger_active = false;
+                            runtime.state = STUTTER_IDLE;
+                        }
+                        else // Active
+                        {
+                            runtime.bypassed = false;
+                        }
+                        break;
+                }
+            }
+            else if(msg.type == NoteOn || msg.type == NoteOff)
+            {
+                NoteOnEvent note_event = msg.AsNoteOn();
+                uint8_t velocity = note_event.velocity;
+                bool active = (msg.type == NoteOn && velocity > 0);
+
+                if(note_event.note == 60) // C4: Momentary Trigger
+                {
+                    runtime.trigger_active = active;
+                }
+                else if(note_event.note == 62 && active) // D4: Latching Toggle
+                {
+                    runtime.trigger_active = !runtime.trigger_active;
+                }
+                else if(note_event.note == 64 && active) // E4: Clear Loop
+                {
+                    runtime.trigger_active = false;
+                    runtime.state = STUTTER_IDLE;
                 }
             }
         }

@@ -26,12 +26,14 @@ typedef struct PedalConfig
     bool    quantize_trigger;   // false = immediate, true = beat-quantized
     uint8_t midi_sync_enabled;  // 0 = free-running, 1 = MIDI sync
     uint8_t playback_rate_mode; // 0=OFF, 1=LFQ, 2=PTQ
+    uint8_t midi_channel;       // 0 = OFF, 1..16 = MIDI Channel
 
     inline bool operator==(const PedalConfig& other) const
     {
         return quantize_trigger == other.quantize_trigger
                && midi_sync_enabled == other.midi_sync_enabled
-               && playback_rate_mode == other.playback_rate_mode;
+               && playback_rate_mode == other.playback_rate_mode
+               && midi_channel == other.midi_channel;
     }
     inline bool operator!=(const PedalConfig& other) const
     {
@@ -64,6 +66,7 @@ typedef struct
     volatile bool    pitch_valid;       // true if confidence > 0.7
     volatile bool    pitch_detection_pending; // main loop should run detector
     volatile int32_t semitone_offset;         // current quantized knob position
+    volatile bool    bypassed;                // true = bypassed, false = active
 } StutterRuntime;
 
 typedef enum
@@ -79,6 +82,7 @@ typedef enum
     MENU_ITEM_MIDI_SYNC = 0,
     MENU_ITEM_QUANTIZE_TRIGGER,
     MENU_ITEM_RATE_MODE,
+    MENU_ITEM_MIDI_CHANNEL,
     MENU_ITEM_DEBUG,
     MENU_ITEM_COUNT // always last; used for bounds checking and loop limits
 } MenuItemId;

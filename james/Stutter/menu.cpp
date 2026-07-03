@@ -153,6 +153,80 @@ static void RenderStatusScreen(StutterDisplay&       display,
     display.WriteString("[>]=MENU          ", Font_7x10, true);
 }
 
+static void RenderSettingsList(StutterDisplay&    display,
+                               const MenuContext* ctx,
+                               const PedalConfig* cfg,
+                               bool               is_editing)
+{
+    int start_index = 0;
+    if(ctx->cursor >= 4)
+    {
+        start_index = ctx->cursor - 3;
+    }
+
+    for(int i = 0; i < 4; i++)
+    {
+        int item_idx = start_index + i;
+        if(item_idx >= MENU_ITEM_COUNT)
+            break;
+
+        int  y           = 10 + i * 10;
+        bool cursor_here = (ctx->cursor == item_idx);
+        bool value_inverted = is_editing && cursor_here;
+
+        switch(item_idx)
+        {
+            case MENU_ITEM_MIDI_SYNC:
+                RenderItemRow(display,
+                              y,
+                              cursor_here,
+                              "MIDI SYNC ",
+                              cfg->midi_sync_enabled ? "   ON" : "  OFF",
+                              value_inverted);
+                break;
+            case MENU_ITEM_QUANTIZE_TRIGGER:
+                RenderItemRow(display,
+                              y,
+                              cursor_here,
+                              "QUANTIZE  ",
+                              cfg->quantize_trigger ? "   ON" : "  OFF",
+                              value_inverted);
+                break;
+            case MENU_ITEM_RATE_MODE:
+                RenderItemRow(display,
+                              y,
+                              cursor_here,
+                              "RATE MODE ",
+                              GetRateModeString(cfg->playback_rate_mode),
+                              value_inverted);
+                break;
+            case MENU_ITEM_MIDI_CHANNEL:
+                {
+                    char val_buf[8];
+                    if(cfg->midi_channel == 0)
+                        snprintf(val_buf, sizeof(val_buf), "  OFF");
+                    else
+                        snprintf(val_buf, sizeof(val_buf), "   %2d", cfg->midi_channel);
+                    RenderItemRow(display,
+                                  y,
+                                  cursor_here,
+                                  "MIDI CH   ",
+                                  val_buf,
+                                  value_inverted);
+                }
+                break;
+            case MENU_ITEM_DEBUG:
+                RenderItemRow(display,
+                              y,
+                              cursor_here,
+                              "DEBUG     ",
+                              "ENTER",
+                              value_inverted);
+                break;
+        }
+    }
+}
+
 static void RenderBrowseScreen(StutterDisplay&    display,
                                const MenuContext* ctx,
                                const PedalConfig* cfg)
@@ -160,30 +234,7 @@ static void RenderBrowseScreen(StutterDisplay&    display,
     display.SetCursor(0, 0);
     display.WriteString("-- SETTINGS --    ", Font_7x10, true);
 
-    RenderItemRow(display,
-                  10,
-                  ctx->cursor == MENU_ITEM_MIDI_SYNC,
-                  "MIDI SYNC ",
-                  cfg->midi_sync_enabled ? "   ON" : "  OFF",
-                  false);
-    RenderItemRow(display,
-                  20,
-                  ctx->cursor == MENU_ITEM_QUANTIZE_TRIGGER,
-                  "QUANTIZE  ",
-                  cfg->quantize_trigger ? "   ON" : "  OFF",
-                  false);
-    RenderItemRow(display,
-                  30,
-                  ctx->cursor == MENU_ITEM_RATE_MODE,
-                  "RATE MODE ",
-                  GetRateModeString(cfg->playback_rate_mode),
-                  false);
-    RenderItemRow(display,
-                  40,
-                  ctx->cursor == MENU_ITEM_DEBUG,
-                  "DEBUG     ",
-                  "ENTER",
-                  false);
+    RenderSettingsList(display, ctx, cfg, false);
 
     display.SetCursor(0, 50);
     display.WriteString("[>]=SEL [B]=BACK  ", Font_7x10, true);
@@ -196,30 +247,7 @@ static void RenderEditScreen(StutterDisplay&    display,
     display.SetCursor(0, 0);
     display.WriteString("-- EDITING --     ", Font_7x10, true);
 
-    RenderItemRow(display,
-                  10,
-                  ctx->cursor == MENU_ITEM_MIDI_SYNC,
-                  "MIDI SYNC ",
-                  cfg->midi_sync_enabled ? "   ON" : "  OFF",
-                  ctx->cursor == MENU_ITEM_MIDI_SYNC);
-    RenderItemRow(display,
-                  20,
-                  ctx->cursor == MENU_ITEM_QUANTIZE_TRIGGER,
-                  "QUANTIZE  ",
-                  cfg->quantize_trigger ? "   ON" : "  OFF",
-                  ctx->cursor == MENU_ITEM_QUANTIZE_TRIGGER);
-    RenderItemRow(display,
-                  30,
-                  ctx->cursor == MENU_ITEM_RATE_MODE,
-                  "RATE MODE ",
-                  GetRateModeString(cfg->playback_rate_mode),
-                  ctx->cursor == MENU_ITEM_RATE_MODE);
-    RenderItemRow(display,
-                  40,
-                  ctx->cursor == MENU_ITEM_DEBUG,
-                  "DEBUG     ",
-                  "ENTER",
-                  ctx->cursor == MENU_ITEM_DEBUG);
+    RenderSettingsList(display, ctx, cfg, true);
 
     display.SetCursor(0, 50);
     display.WriteString("[>]=OK [B]=CNCL   ", Font_7x10, true);
@@ -344,6 +372,15 @@ void MenuHandleRotate(MenuContext* ctx, PedalConfig* cfg, int delta)
         {
             cfg->playback_rate_mode = (cfg->playback_rate_mode + 1) % PRM_COUNT;
         }
+        else if(ctx->cursor == MENU_ITEM_MIDI_CHANNEL)
+        {
+            int val = cfg->midi_channel + delta;
+            if(val < 0)
+                val = 0;
+            if(val > 16)
+                val = 16;
+            cfg->midi_channel = val;
+        }
         ctx->needs_redraw = true;
     }
 }
@@ -442,8 +479,7 @@ void MenuRender(StutterDisplay&       display,
            || rt->has_clock != last_has_clock || rt->subdiv_pos != last_subdiv
            || rt->midi_play_seen != last_play_seen
            || rt->semitone_offset != last_semitone
-           || rt->playback_rate_mode != last_rate_mode
-           || ctx->needs_redraw)
+           || rt->playback_rate_mode != last_rate_mode || ctx->needs_redraw)
         {
             should_redraw    = true;
             last_state       = rt->state;
