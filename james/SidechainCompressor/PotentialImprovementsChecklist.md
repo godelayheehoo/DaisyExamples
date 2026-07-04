@@ -4,7 +4,7 @@ Technically: The current code reads hw.adc.GetFloat(0) once per block and then a
 Fix sketch: Move the sidechain ADC read inside the sample loop (the Daisy ADC is continuously sampling, the read is just a register fetch so it's cheap), or interpolate the envelope value across the block.
 Difficulty: Low. Effort: Small but requires careful listening to confirm improvement.
 
-2. Attack/release curves feel wrong for musical pumping
+2. [subjective] Attack/release curves feel wrong for musical pumping
 What it is: Linear-in-time attack/release on the gain reduction doesn't match how analog compressors actually behave. Classic pumping compressors have non-linear curves — attack can be near-instantaneous, release often has a two-stage shape (fast early, then slower tail). The current code uses simple one-pole IIR, which is correct mathematically but may sound "digital" or abrupt.
 Fix sketch: A couple of options — log-domain gain reduction (compute everything in dB, smooth the dB value rather than the linear envelope), or a dual-stage release (fast coefficient for the first portion of release, then a slower one). The latter is what gives classic pumps their musical "breathe."
 Difficulty: Medium. Effort: Medium — requires experimentation to dial in the curves, there's no single right answer.
@@ -14,7 +14,7 @@ What it is: Compressor arithmetic done in the linear domain (multiplying the sig
 Technically: Fixed in JamesClasses/SidechainCompressor.h by smoothing gain reduction in the dB domain and using a Peak detector for level sensing. This ensures the attack/release curves are linear in dB.
 Difficulty: Low-Medium. Effort: Low once you know whether it's already handled.
 
-4. Saturation is happening post-makeup-gain, wrong order
+4. [subjective] Saturation is happening post-makeup-gain, wrong order
 What it is: If the signal hits the saturation stage at the wrong level — either too hot (clipping hard every hit) or too cold (saturation does nothing) — the character of the saturation sounds wrong or invisible. Also, applying saturation after the dry/wet mix means the dry signal gets saturated, which may not be what you want.
 Fix sketch: Experiment with saturation before vs. after the mix blend, and before vs. after makeup gain. For synths at line level, saturation probably wants to be post-compression but pre-makeup, so you're colouring the compressed signal before boosting it up.
 Difficulty: Low. Effort: Low, just reordering operations.
@@ -34,7 +34,7 @@ What it is: The mid/side width processing (assuming it's rotating between M/S) c
 Technically: Fixed in JamesClasses/SidechainCompressor.h by implementing a 2% dead-zone around the center point (1.0) and moving the 0.5 normalization factor to the decode side of the matrix. This ensures the matrix is completely bypassed when the pot is near center, eliminating smearing from ADC noise.
 Difficulty: Low. Effort: Low.
 
-8. Pumping isn't musical — timing feels off
+8. [Probably skipping] Pumping isn't musical — timing feels off
 What it is: Even with everything working correctly, if the attack and release times don't feel locked to the tempo, the pumping can sound random rather than musical. This is a parameter problem, not a code problem, but it's worth naming.
 Fix sketch: No code change needed — calculate attack and release times from BPM. For 120 BPM (500ms quarter note), a release of ~200–300ms creates tight French house pumping; ~600–800ms creates the slower breathe of classic trance. Attack should be fast enough to let the kick transient through (1–5ms) before clamping.
 Difficulty: N/A. Effort: Experimentation only.
