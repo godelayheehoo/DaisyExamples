@@ -1,8 +1,8 @@
-1. Envelope follower is too coarse / aliased
+1. [DONE] Envelope follower is too coarse / aliased
 What it is: The envelope follower runs at audio rate but is only updated from the ADC reading once per callback block. If the sidechain rectification is jerky or the smoothing coefficients are mismatched to the signal, the gain reduction modulation itself will have artifacts — clicks, zipper noise, or a mechanical quality.
-Technically: The current code reads hw.adc.GetFloat(0) once per block and then applies the same value to all samples in that block. That means gain changes can step rather than interpolate. Smoothing inside the loop helps, but the single-ADC-read-per-block is a ceiling.
-Fix sketch: Move the sidechain ADC read inside the sample loop (the Daisy ADC is continuously sampling, the read is just a register fetch so it's cheap), or interpolate the envelope value across the block.
+Technically: Fixed in TestSidechainCompressor.cpp by reading the ADC value once at the start of each block and linearly interpolating the value across the audio callback samples. This converts block-rate stair-steps into smooth audio-rate ramps.
 Difficulty: Low. Effort: Small but requires careful listening to confirm improvement.
+
 
 2. [subjective] Attack/release curves feel wrong for musical pumping
 What it is: Linear-in-time attack/release on the gain reduction doesn't match how analog compressors actually behave. Classic pumping compressors have non-linear curves — attack can be near-instantaneous, release often has a two-stage shape (fast early, then slower tail). The current code uses simple one-pole IIR, which is correct mathematically but may sound "digital" or abrupt.

@@ -74,10 +74,17 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
                    size_t                    size)
 {
+    static float last_sc_in_raw = 0.0f;
+    float        sc_target      = hw.adc.GetFloat(kScInput);
+    float        sc_start       = last_sc_in_raw;
+    float        inv_size       = 1.0f / (float)size;
+
     for(size_t i = 0; i < size; i++)
     {
-        float sc_in_pre
-            = hw.adc.GetFloat(kScInput); // A10 / D25, conditioned 0..1
+        // Linearly interpolate the sidechain ADC input across the block
+        // to prevent digital stair-stepping/zipper noise artifacts.
+        float t         = (float)(i + 1) * inv_size;
+        float sc_in_pre = sc_start + t * (sc_target - sc_start);
 
         // Track pre-filter peak
         float abs_pre = fabsf(sc_in_pre);
@@ -114,6 +121,8 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
     // Option B: Update LED if envelope exceeds threshold
     dsy_gpio_write(&led, comp.GetEnvelopeDB() > current_threshold ? 1 : 0);
+
+    last_sc_in_raw = sc_target;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
