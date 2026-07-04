@@ -1,5 +1,6 @@
 #pragma once
 #include "daisy_seed.h"
+#include "constants.h"
 
 // =============================================================================
 // pins.h — Stutter Unit Hardware Pin Definitions
@@ -89,15 +90,6 @@ constexpr daisy::Pin MENU_BAK = daisy::seed::D25; // active LOW
 constexpr daisy::Pin MENU_CON = daisy::seed::D26; // active LOW
 
 } // namespace StutterPins
-
-
-// =============================================================================
-// RATE ENCODER CONSTANTS
-// =============================================================================
-constexpr float RATE_STEP = 0.05f; // change per encoder detent; tune to taste
-constexpr float RATE_MIN  = 0.25f; // lower bound (~2 octaves down)
-constexpr float RATE_MAX  = 4.0f;  // upper bound (~2 octaves up)
-constexpr float RATE_INIT = 1.0f;  // always start at unity on boot
 
 
 // =============================================================================

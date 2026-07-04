@@ -97,5 +97,3 @@ The following features and optimizations remain open for implementation:
 
 1. **Buffer Fade-In/Out windowing:**
    * Implement a micro-fade envelope (5-10ms) on loop boundaries and loop initialization to eliminate clicks or pops when repeating short subdivisions. (may not want this, it sounds fine right now)
-2. **MIDI Clock Out-of-Range Guarding:**
-   * Clamp smoothed BPM calculations to a reasonable range (e.g. 40 to 240 BPM) to handle noisy clock sequences gracefully.

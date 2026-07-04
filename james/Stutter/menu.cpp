@@ -2,6 +2,7 @@
 
 
 #include "menu.h"
+#include "constants.h"
 #include "util/oled_fonts.h"
 #include <stdio.h>
 
@@ -334,7 +335,7 @@ void MenuTick(MenuContext* ctx, PedalConfig* cfg, uint32_t elapsed_ms)
     if(ctx->state == MENU_STATE_BROWSE)
     {
         ctx->idle_timer_ms += elapsed_ms;
-        if(ctx->idle_timer_ms >= 5000)
+        if(ctx->idle_timer_ms >= MENU_IDLE_TIMEOUT_MS)
         {
             ctx->state        = MENU_STATE_STATUS;
             ctx->needs_redraw = true;

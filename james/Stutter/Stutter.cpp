@@ -2,6 +2,7 @@
 #define TEST_WEAR_LEVELING 1
 #include "daisy_seed.h"
 #include "daisysp.h"
+#include "constants.h"
 #include "pins.h"
 #include "menu.h"
 #include "wear_leveling_storage.h"
@@ -42,7 +43,6 @@ GPIO rot_switch_pins[5];
 GPIO stutter_led;
 
 // Stutter buffers in external SDRAM
-#define STUTTER_BUFFER_MAX_SAMPLES 100000
 float DSY_SDRAM_BSS stutter_buf_l[STUTTER_BUFFER_MAX_SAMPLES];
 float DSY_SDRAM_BSS stutter_buf_r[STUTTER_BUFFER_MAX_SAMPLES];
 
@@ -64,9 +64,9 @@ WearLevelingStorage<PedalConfig, 4> storage(hw.qspi);
 // Operates on the stutter buffer after a capture completes.
 static void RunPitchDetection(uint32_t buffer_length)
 {
-    const float sample_rate = 48000.0f;
-    const float min_freq    = 50.0f;
-    const float max_freq    = 2000.0f;
+    const float sample_rate = SAMPLE_RATE;
+    const float min_freq    = PITCH_MIN_FREQ;
+    const float max_freq    = PITCH_MAX_FREQ;
 
     uint32_t min_lag = static_cast<uint32_t>(sample_rate / max_freq); // ~24
     uint32_t max_lag = static_cast<uint32_t>(sample_rate / min_freq); // ~960
@@ -127,7 +127,7 @@ static void RunPitchDetection(uint32_t buffer_length)
     }
 
     runtime.pitch_confidence = best_corr;
-    runtime.pitch_valid      = (best_corr > 0.7f);
+    runtime.pitch_valid      = (best_corr > PITCH_CONFIDENCE_THRESHOLD);
 
     if(runtime.pitch_valid)
     {
@@ -544,12 +544,12 @@ int main(void)
 
     // Initialize Stutter runtime states
     runtime.state                   = STUTTER_IDLE;
-    runtime.rate                    = 1.0f;
-    runtime.target_rate             = 1.0f;
+    runtime.rate                    = RATE_INIT;
+    runtime.target_rate             = RATE_INIT;
     runtime.wet                     = 0.5f;
-    runtime.buffer_length           = 48000;
+    runtime.buffer_length           = static_cast<uint32_t>(SAMPLE_RATE);
     runtime.trigger_active          = false;
-    runtime.bpm                     = 120.0f;
+    runtime.bpm                     = BPM_DEFAULT;
     runtime.has_clock               = false;
     runtime.subdiv_pos              = 2; // Default to 1/8 note
     runtime.midi_event_count        = 0;
@@ -569,7 +569,7 @@ int main(void)
     hw.adc.Start();
 
     // Start Audio
-    hw.SetAudioBlockSize(4); // number of samples handled per callback
+    hw.SetAudioBlockSize(AUDIO_BLOCK_SIZE); // number of samples handled per callback
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
     hw.StartAudio(AudioCallback);
 
@@ -588,7 +588,7 @@ int main(void)
     // MIDI Timing and Tracking Variables
     uint32_t last_clock_us      = 0;
     uint32_t last_clock_recv_ms = 0;
-    float    bpm_smoothed       = 120.0f;
+    float    bpm_smoothed       = BPM_DEFAULT;
     bool     first_clock        = true;
     // bool     prev_has_clock     = false;
 
@@ -686,10 +686,10 @@ int main(void)
                     if(last_clock_us != 0)
                     {
                         uint32_t elapsed_us = now_us - last_clock_us;
-                        // Outlier filter: accept only between 30 and 300 BPM (8,333us to 83,333us)
-                        if(elapsed_us >= 8333 && elapsed_us <= 83333)
+                        // Outlier filter: accept only between BPM_FILTER_MIN and BPM_FILTER_MAX
+                        if(elapsed_us >= MIDI_CLOCK_MIN_US && elapsed_us <= MIDI_CLOCK_MAX_US)
                         {
-                            float raw_bpm = 2500000.0f / elapsed_us;
+                            float raw_bpm = MIDI_CLOCK_DIVISOR / elapsed_us;
                             if(first_clock)
                             {
                                 bpm_smoothed = raw_bpm;
@@ -698,8 +698,10 @@ int main(void)
                             else
                             {
                                 bpm_smoothed
-                                    += 0.05f * (raw_bpm - bpm_smoothed);
+                                    += BPM_SMOOTHING_COEFF * (raw_bpm - bpm_smoothed);
                             }
+                            // Clamp smoothed BPM to guard against out-of-range rates
+                            bpm_smoothed = fclamp(bpm_smoothed, BPM_MIN, BPM_MAX);
                             runtime.has_clock  = true;
                             last_clock_recv_ms = now_ms;
                         }
@@ -829,7 +831,7 @@ int main(void)
                         menu_ctx.dirty             = true;
                         break;
                     case 29: // Manual BPM (Tempo)
-                        runtime.bpm = 40.0f + (val / 127.0f) * 200.0f;
+                        runtime.bpm = BPM_MIN + (val / 127.0f) * (BPM_MAX - BPM_MIN);
                         break;
                     case 30: // Clear Loop / Reset
                         if(val >= 64)
@@ -903,7 +905,7 @@ int main(void)
         }
         else
         {
-            runtime.bpm = 120.0f;
+            runtime.bpm = BPM_DEFAULT;
         }
 
         // Get pot float value (0.0 to 1.0), inverted so CW increases value
@@ -1010,7 +1012,7 @@ int main(void)
         }
 
         // Render OLED screen at 20 Hz
-        if(now_ms - last_display_ms >= 50)
+        if(now_ms - last_display_ms >= DISPLAY_UPDATE_PERIOD_MS)
         {
             MenuRender(display, &menu_ctx, &config, &runtime);
             last_display_ms = now_ms;
