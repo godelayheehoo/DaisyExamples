@@ -19,9 +19,9 @@ What it is: If the signal hits the saturation stage at the wrong level — eithe
 Fix sketch: Experiment with saturation before vs. after the mix blend, and before vs. after makeup gain. For synths at line level, saturation probably wants to be post-compression but pre-makeup, so you're colouring the compressed signal before boosting it up.
 Difficulty: Low. Effort: Low, just reordering operations.
 
-5. Soft/hard clip implementation is too simple
+5. [DONE] Soft/hard clip implementation is too simple
 What it is: A basic tanh or hard clip is not the same as the non-linear behaviour of analog tape or transformers. At moderate drive settings it can sound like nothing, and at high settings it can sound harsh rather than "thick." The wavefold mode especially can produce aliasing artifacts at line level.
-Fix sketch: For soft clip, a polynomial waveshaper (e.g. x - x³/3) has a more gradual knee than tanh. For the wavefold, oversampling (2x or 4x) then downsampling reduces aliasing — the Daisy has enough headroom to run 2x oversampling on a stereo signal. DaisySP has an Overdrive class that may sound more musical than a raw clip function.
+Technically: Fixed in JamesClasses/SidechainCompressor.h by replacing the computationally expensive `tanhf` soft-clipper with a cubic polynomial waveshaper (continuous values and first derivatives) and implementing 2x oversampling (linear upsampler interpolation, 2-point moving average downsampler decimation filter) on the output saturation stage to significantly reduce digital aliasing artifacts.
 Difficulty: Medium (oversampling), Low (waveshaper swap). Effort: Medium — waveshaper swap is quick; oversampling takes more plumbing.
 
 6. [DONE] No input/output gain staging
