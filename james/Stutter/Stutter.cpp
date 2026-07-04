@@ -1,8 +1,10 @@
 #define DEBUG_MODE
+#define TEST_WEAR_LEVELING 1
 #include "daisy_seed.h"
 #include "daisysp.h"
 #include "pins.h"
 #include "menu.h"
+#include "wear_leveling_storage.h"
 
 using namespace daisy;
 using namespace daisysp;
@@ -55,7 +57,7 @@ MenuContext    menu_ctx;
 StutterRuntime runtime;
 
 // Persistent Storage
-PersistentStorage<PedalConfig> storage(hw.qspi);
+WearLevelingStorage<PedalConfig, 4> storage(hw.qspi);
 
 // ── Pitch Detection (autocorrelation) ─────────────────────────────────────────
 // Runs in main loop, NOT in audio callback.
@@ -399,6 +401,99 @@ void InitOled()
     display.Init(display_cfg);
 }
 
+#ifdef TEST_WEAR_LEVELING
+static void TestWearLeveling()
+{
+    hw.PrintLine("--- WEAR LEVELING SELF TEST START ---");
+
+    // Use a different sector offset, e.g., 1MB in (0x100000)
+    uint32_t test_offset = 0x100000;
+
+    struct TestConfig
+    {
+        uint32_t    a;
+        uint32_t    b;
+        inline bool operator==(const TestConfig& other) const
+        {
+            return a == other.a && b == other.b;
+        }
+        inline bool operator!=(const TestConfig& other) const
+        {
+            return !(*this == other);
+        }
+    };
+
+    WearLevelingStorage<TestConfig, 4> test_storage(hw.qspi);
+
+    hw.PrintLine("Erasing test sectors...");
+    for(size_t i = 0; i < 4; ++i)
+    {
+        hw.qspi.EraseSector(test_offset + i * 4096);
+    }
+
+    TestConfig defaults = {42, 100};
+    hw.PrintLine("Initializing test storage...");
+    test_storage.Init(defaults, test_offset);
+
+    TestConfig loaded = test_storage.GetSettings();
+    if(loaded.a == 42 && loaded.b == 100)
+    {
+        hw.PrintLine("Init clean state: SUCCESS");
+    }
+    else
+    {
+        hw.PrintLine("Init clean state: FAILED! Loaded a=%d, b=%d",
+                     (int)loaded.a,
+                     (int)loaded.b);
+    }
+
+    loaded.a                   = 99;
+    test_storage.GetSettings() = loaded;
+    hw.PrintLine("Saving modification 1 (a=99)...");
+    test_storage.Save();
+
+    hw.PrintLine("Re-initializing test storage to simulate reboot...");
+    test_storage.Init(defaults, test_offset);
+    loaded = test_storage.GetSettings();
+    if(loaded.a == 99 && loaded.b == 100)
+    {
+        hw.PrintLine("Re-init check: SUCCESS");
+    }
+    else
+    {
+        hw.PrintLine("Re-init check: FAILED! Loaded a=%d, b=%d",
+                     (int)loaded.a,
+                     (int)loaded.b);
+    }
+
+    hw.PrintLine(
+        "Writing 300 sequential configurations to verify ring buffer...");
+    for(int i = 0; i < 300; ++i)
+    {
+        loaded.a                   = 200 + i;
+        test_storage.GetSettings() = loaded;
+        test_storage.Save();
+    }
+
+    hw.PrintLine("Re-initializing test storage after 300 writes...");
+    test_storage.Init(defaults, test_offset);
+    loaded = test_storage.GetSettings();
+    if(loaded.a == 200 + 299 && loaded.b == 100)
+    {
+        hw.PrintLine("Post-wrap check: SUCCESS (retrieved latest config a=%d)",
+                     (int)loaded.a);
+    }
+    else
+    {
+        hw.PrintLine("Post-wrap check: FAILED! Loaded a=%d, b=%d",
+                     (int)loaded.a,
+                     (int)loaded.b);
+    }
+
+    hw.PrintLine("--- WEAR LEVELING SELF TEST COMPLETE ---");
+}
+#endif
+
 int main(void)
 {
     // Initialize Seed hardware
@@ -482,6 +577,9 @@ int main(void)
     hw.StartLog(
         false); // Start logging over USB serial without waiting for connection
     uint32_t last_print = System::GetNow();
+#ifdef TEST_WEAR_LEVELING
+    TestWearLeveling();
+#endif
 #endif
 
     uint32_t last_tick_time  = System::GetNow();
@@ -630,9 +728,9 @@ int main(void)
             }
             else if(msg.type == ControlChange)
             {
-                ControlChangeEvent cc = msg.AsControlChange();
-                uint8_t ctrl = cc.control_number;
-                uint8_t val = cc.value;
+                ControlChangeEvent cc   = msg.AsControlChange();
+                uint8_t            ctrl = cc.control_number;
+                uint8_t            val  = cc.value;
 
                 switch(ctrl)
                 {
@@ -643,74 +741,92 @@ int main(void)
                         runtime.trigger_active = (val >= 64);
                         break;
                     case 22: // Playback Rate (Continuous)
+                    {
+                        float cc_val = static_cast<float>(val);
+                        if(val <= 64)
                         {
-                            float cc_val = static_cast<float>(val);
-                            if(val <= 64)
+                            runtime.target_rate
+                                = RATE_MIN
+                                  + (cc_val / 64.0f) * (1.0f - RATE_MIN);
+                        }
+                        else
+                        {
+                            runtime.target_rate = 1.0f
+                                                  + ((cc_val - 64.0f) / 63.0f)
+                                                        * (RATE_MAX - 1.0f);
+                        }
+                    }
+                    break;
+                    case 23: // Quantized Semitone Offset
+                    {
+                        float norm = (static_cast<float>(val) - 64.0f) / 63.0f;
+                        int semitones = static_cast<int>(roundf(norm * 24.0f));
+                        if(semitones < -24)
+                            semitones = -24;
+                        if(semitones > 24)
+                            semitones = 24;
+                        runtime.semitone_offset = semitones;
+
+                        // Recalculate target rate if quantized mode is active
+                        uint8_t mode = runtime.playback_rate_mode;
+                        if(mode != PRM_OFF)
+                        {
+                            float rate_from_semitones
+                                = powf(2.0f, runtime.semitone_offset / 12.0f);
+                            if(mode == PRM_PTQ && runtime.pitch_valid
+                               && runtime.detected_pitch_hz > 0.0f
+                               && runtime.loop_frequency_hz > 0.0f)
                             {
-                                runtime.target_rate = RATE_MIN + (cc_val / 64.0f) * (1.0f - RATE_MIN);
+                                float target_freq = runtime.detected_pitch_hz
+                                                    * rate_from_semitones;
+                                runtime.target_rate
+                                    = target_freq / runtime.loop_frequency_hz;
                             }
                             else
                             {
-                                runtime.target_rate = 1.0f + ((cc_val - 64.0f) / 63.0f) * (RATE_MAX - 1.0f);
+                                runtime.target_rate = rate_from_semitones;
                             }
+                            runtime.target_rate = fclamp(
+                                runtime.target_rate, RATE_MIN, RATE_MAX);
                         }
-                        break;
-                    case 23: // Quantized Semitone Offset
-                        {
-                            float norm = (static_cast<float>(val) - 64.0f) / 63.0f;
-                            int semitones = static_cast<int>(roundf(norm * 24.0f));
-                            if(semitones < -24) semitones = -24;
-                            if(semitones > 24) semitones = 24;
-                            runtime.semitone_offset = semitones;
-
-                            // Recalculate target rate if quantized mode is active
-                            uint8_t mode = runtime.playback_rate_mode;
-                            if(mode != PRM_OFF)
-                            {
-                                float rate_from_semitones = powf(2.0f, runtime.semitone_offset / 12.0f);
-                                if(mode == PRM_PTQ && runtime.pitch_valid
-                                   && runtime.detected_pitch_hz > 0.0f
-                                   && runtime.loop_frequency_hz > 0.0f)
-                                {
-                                    float target_freq = runtime.detected_pitch_hz * rate_from_semitones;
-                                    runtime.target_rate = target_freq / runtime.loop_frequency_hz;
-                                }
-                                else
-                                {
-                                    runtime.target_rate = rate_from_semitones;
-                                }
-                                runtime.target_rate = fclamp(runtime.target_rate, RATE_MIN, RATE_MAX);
-                            }
-                        }
-                        break;
+                    }
+                    break;
                     case 24: // Wet/Dry Mix
                         runtime.wet = val / 127.0f;
                         break;
                     case 25: // Loop Length subdivision
-                        if(val <= 25) runtime.subdiv_pos = 0;
-                        else if(val <= 50) runtime.subdiv_pos = 1;
-                        else if(val <= 76) runtime.subdiv_pos = 2;
-                        else if(val <= 102) runtime.subdiv_pos = 3;
-                        else runtime.subdiv_pos = 4;
+                        if(val <= 25)
+                            runtime.subdiv_pos = 0;
+                        else if(val <= 50)
+                            runtime.subdiv_pos = 1;
+                        else if(val <= 76)
+                            runtime.subdiv_pos = 2;
+                        else if(val <= 102)
+                            runtime.subdiv_pos = 3;
+                        else
+                            runtime.subdiv_pos = 4;
                         break;
                     case 26: // MIDI Sync Enable
                         config.midi_sync_enabled = (val >= 64) ? 1 : 0;
-                        menu_ctx.needs_redraw = true;
-                        menu_ctx.dirty = true;
+                        menu_ctx.needs_redraw    = true;
+                        menu_ctx.dirty           = true;
                         break;
                     case 27: // Quantize Trigger Enable
-                        config.quantize_trigger = (val >= 64);
+                        config.quantize_trigger  = (val >= 64);
                         runtime.quantize_trigger = config.quantize_trigger;
-                        menu_ctx.needs_redraw = true;
-                        menu_ctx.dirty = true;
+                        menu_ctx.needs_redraw    = true;
+                        menu_ctx.dirty           = true;
                         break;
                     case 28: // Playback Rate Mode
-                        if(val <= 42) config.playback_rate_mode = PRM_OFF;
-                        else if(val <= 85) config.playback_rate_mode = PRM_LFQ;
-                        else config.playback_rate_mode = PRM_PTQ;
+                        if(val <= 42)
+                            config.playback_rate_mode = PRM_OFF;
+                        else if(val <= 85)
+                            config.playback_rate_mode = PRM_LFQ;
+                        else
+                            config.playback_rate_mode = PRM_PTQ;
                         runtime.playback_rate_mode = config.playback_rate_mode;
-                        menu_ctx.needs_redraw = true;
-                        menu_ctx.dirty = true;
+                        menu_ctx.needs_redraw      = true;
+                        menu_ctx.dirty             = true;
                         break;
                     case 29: // Manual BPM (Tempo)
                         runtime.bpm = 40.0f + (val / 127.0f) * 200.0f;
@@ -719,15 +835,15 @@ int main(void)
                         if(val >= 64)
                         {
                             runtime.trigger_active = false;
-                            runtime.state = STUTTER_IDLE;
+                            runtime.state          = STUTTER_IDLE;
                         }
                         break;
-                    case 31: // Bypass / Active
+                    case 31:         // Bypass / Active
                         if(val < 64) // Bypass
                         {
-                            runtime.bypassed = true;
+                            runtime.bypassed       = true;
                             runtime.trigger_active = false;
-                            runtime.state = STUTTER_IDLE;
+                            runtime.state          = STUTTER_IDLE;
                         }
                         else // Active
                         {
@@ -739,8 +855,8 @@ int main(void)
             else if(msg.type == NoteOn || msg.type == NoteOff)
             {
                 NoteOnEvent note_event = msg.AsNoteOn();
-                uint8_t velocity = note_event.velocity;
-                bool active = (msg.type == NoteOn && velocity > 0);
+                uint8_t     velocity   = note_event.velocity;
+                bool        active     = (msg.type == NoteOn && velocity > 0);
 
                 if(note_event.note == 60) // C4: Momentary Trigger
                 {
@@ -753,7 +869,7 @@ int main(void)
                 else if(note_event.note == 64 && active) // E4: Clear Loop
                 {
                     runtime.trigger_active = false;
-                    runtime.state = STUTTER_IDLE;
+                    runtime.state          = STUTTER_IDLE;
                 }
             }
         }
