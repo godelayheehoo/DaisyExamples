@@ -2,6 +2,7 @@
 #include "daisysp.h"
 #include "SidechainCompressor.h"
 #include "constants.h"
+#include "pins.h"
 
 using namespace daisy;
 
@@ -136,28 +137,28 @@ int main(void)
     // ── Bootloader Entry ─────────────────────────────────────────────────────
     // If D8 (Pin 9) is held LOW (button to GND) during startup, jump to bootloader.
     dsy_gpio boot_sw;
-    boot_sw.pin  = hw.GetPin(8);
+    boot_sw.pin  = hw.GetPin(PIN_BOOTLOADER_SW);
     boot_sw.mode = DSY_GPIO_MODE_INPUT;
     boot_sw.pull = DSY_GPIO_PULLUP;
     dsy_gpio_init(&boot_sw);
-    hw.DelayMs(10);
+    hw.DelayMs(STARTUP_DELAY_MS);
     //temp: remove
     if(!dsy_gpio_read(&boot_sw))
     {
-        System::Delay(500);
+        System::Delay(BOOTLOADER_RESET_DELAY_MS);
         daisy::System::ResetToBootloader();
     }
 
     // Flash built-in LED 4 times as soon as possible
-    for(int i = 0; i < 4; i++)
+    for(int i = 0; i < BOOT_FLASH_COUNT; i++)
     {
         hw.SetLed(true);
-        hw.DelayMs(100);
+        hw.DelayMs(BOOT_FLASH_DELAY_MS);
         hw.SetLed(false);
-        hw.DelayMs(100);
+        hw.DelayMs(BOOT_FLASH_DELAY_MS);
     }
 
-    hw.SetAudioBlockSize(4); // samples per callback; 4 is low-latency default
+    hw.SetAudioBlockSize(AUDIO_BLOCK_SIZE); // samples per callback; 4 is low-latency default
 
     sample_rate = hw.AudioSampleRate();
 
@@ -166,38 +167,38 @@ int main(void)
     // NOTE: Pin assignments for Cutoff, Width, and Output have been swapped
     // to match physical wiring based on diagnostics.
     AdcChannelConfig adc_cfg[kNumAdcChannels];
-    adc_cfg[kScInput].InitSingle(hw.GetPin(25)); // A10 / D25 = sidechain input
-    adc_cfg[kFilterCutoffPot].InitSingle(hw.GetPin(21)); // A6  / D21
-    adc_cfg[kThresholdPot].InitSingle(hw.GetPin(15));    // A0  / D15
-    adc_cfg[kRatioPot].InitSingle(hw.GetPin(16));        // A1  / D16
-    adc_cfg[kAttackPot].InitSingle(hw.GetPin(17));       // A2  / D17
-    adc_cfg[kReleasePot].InitSingle(hw.GetPin(18));      // A3  / D18
-    adc_cfg[kMixPot].InitSingle(hw.GetPin(19));          // A4  / D19
-    adc_cfg[kDrivePot].InitSingle(hw.GetPin(20));        // A5  / D20
-    adc_cfg[kWidthPot].InitSingle(hw.GetPin(22));        // A7  / D22
-    adc_cfg[kOutputPot].InitSingle(hw.GetPin(23));       // A8  / D23
+    adc_cfg[kScInput].InitSingle(hw.GetPin(PIN_SC_INPUT)); // A10 / D25 = sidechain input
+    adc_cfg[kFilterCutoffPot].InitSingle(hw.GetPin(PIN_FILTER_CUTOFF)); // A6  / D21
+    adc_cfg[kThresholdPot].InitSingle(hw.GetPin(PIN_THRESHOLD_POT));    // A0  / D15
+    adc_cfg[kRatioPot].InitSingle(hw.GetPin(PIN_RATIO_POT));        // A1  / D16
+    adc_cfg[kAttackPot].InitSingle(hw.GetPin(PIN_ATTACK_POT));       // A2  / D17
+    adc_cfg[kReleasePot].InitSingle(hw.GetPin(PIN_RELEASE_POT));      // A3  / D18
+    adc_cfg[kMixPot].InitSingle(hw.GetPin(PIN_MIX_POT));          // A4  / D19
+    adc_cfg[kDrivePot].InitSingle(hw.GetPin(PIN_DRIVE_POT));        // A5  / D20
+    adc_cfg[kWidthPot].InitSingle(hw.GetPin(PIN_WIDTH_POT));        // A7  / D22
+    adc_cfg[kOutputPot].InitSingle(hw.GetPin(PIN_OUTPUT_POT));       // A8  / D23
 
     hw.adc.Init(adc_cfg, kNumAdcChannels);
     hw.adc.Start();
     //
     // ── Switch init ──────────────────────────────────────────────────────────
-    sw_sat1.pin  = hw.GetPin(26);
+    sw_sat1.pin  = hw.GetPin(PIN_SAT_SW1);
     sw_sat1.mode = DSY_GPIO_MODE_INPUT;
     sw_sat1.pull = DSY_GPIO_PULLUP;
     dsy_gpio_init(&sw_sat1);
 
-    sw_sat2.pin  = hw.GetPin(27);
+    sw_sat2.pin  = hw.GetPin(PIN_SAT_SW2);
     sw_sat2.mode = DSY_GPIO_MODE_INPUT;
     sw_sat2.pull = DSY_GPIO_PULLUP;
     dsy_gpio_init(&sw_sat2);
 
     // ── Filter switch init ───────────────────────────────────────────────────
-    filter_sw1.pin  = hw.GetPin(11);
+    filter_sw1.pin  = hw.GetPin(PIN_FILTER_SW1);
     filter_sw1.mode = DSY_GPIO_MODE_INPUT;
     filter_sw1.pull = DSY_GPIO_PULLUP;
     dsy_gpio_init(&filter_sw1);
 
-    filter_sw2.pin  = hw.GetPin(12);
+    filter_sw2.pin  = hw.GetPin(PIN_FILTER_SW2);
     filter_sw2.mode = DSY_GPIO_MODE_INPUT;
     filter_sw2.pull = DSY_GPIO_PULLUP;
     dsy_gpio_init(&filter_sw2);
@@ -206,14 +207,14 @@ int main(void)
     // ── Compressor init ────────────────────────────────────
     comp.Init(sample_rate);
     comp.SetInputGain(
-        6.0f); // +6dB trim to bring line-level signals into a better range
+        COMP_INPUT_GAIN_DB); // +6dB trim to bring line-level signals into a better range
     comp.SetInputSaturation(
-        0.15f); // subtle input "color" saturation before compression
+        COMP_INPUT_SATURATION); // subtle input "color" saturation before compression
 
     // ── Filter init ────────────────────────────────────────
     sc_filter.Init(sample_rate);
-    sc_filter.SetFreq(1000.f);
-    sc_filter.SetRes(0.5f);
+    sc_filter.SetFreq(SC_FILTER_INIT_FREQ);
+    sc_filter.SetRes(SC_FILTER_INIT_RES);
 
 #ifdef DEBUG_LOG
     hw.StartLog(true);
@@ -221,17 +222,17 @@ int main(void)
 #endif
 
     // ── LED init — flash 3x on boot to confirm hardware is alive ─────────────
-    led.pin  = hw.GetPin(30);
+    led.pin  = hw.GetPin(PIN_LED);
     led.mode = DSY_GPIO_MODE_OUTPUT_PP;
     led.pull = DSY_GPIO_NOPULL;
     dsy_gpio_init(&led);
 
-    for(int i = 0; i < 3; i++)
+    for(int i = 0; i < INIT_FLASH_COUNT; i++)
     {
         dsy_gpio_write(&led, 1);
-        hw.DelayMs(100);
+        hw.DelayMs(INIT_FLASH_DELAY_MS);
         dsy_gpio_write(&led, 0);
-        hw.DelayMs(100);
+        hw.DelayMs(INIT_FLASH_DELAY_MS);
     }
 
 
@@ -244,7 +245,7 @@ int main(void)
         // NOTE: all raw ADC readings are inverted (1.0f - val) to compensate
         // for reversed GND/3.3V wiring on the potentiometers.
         float cutoff_raw = 1.0f - hw.adc.GetFloat(kFilterCutoffPot);
-        float cutoff_hz  = 20.f * powf(1000.f, cutoff_raw);
+        float cutoff_hz  = CUTOFF_MIN_HZ * powf(CUTOFF_MAX_SCALE, cutoff_raw);
         sc_filter.SetFreq(cutoff_hz);
 
         bool f1 = !dsy_gpio_read(&filter_sw1); // true if grounded
@@ -259,7 +260,7 @@ int main(void)
 
         // 2. Read Pots and Update Parameters
         float thresh_val  = 1.0f - hw.adc.GetFloat(kThresholdPot);
-        current_threshold = -60.0f + (thresh_val * 60.0f); // -60 to 0 dB
+        current_threshold = THRESHOLD_MIN_DB + (thresh_val * THRESHOLD_RANGE_DB); // -60 to 0 dB
         comp.SetThreshold(current_threshold);
 
         float ratio_val = 1.0f - hw.adc.GetFloat(kRatioPot);
@@ -269,7 +270,7 @@ int main(void)
         if(ratio_val <= INFINITY_CUTOFF)
         {
             float normalized_ratio = ratio_val / INFINITY_CUTOFF;
-            ratio                  = powf(100.0f, normalized_ratio);
+            ratio                  = powf(RATIO_MAX_EXP, normalized_ratio);
         }
         else
         {
@@ -278,11 +279,11 @@ int main(void)
         comp.SetRatio(ratio);
 
         float atk_val   = 1.0f - hw.adc.GetFloat(kAttackPot);
-        float attack_ms = 1.0f + (atk_val * 299.0f); // 1ms to 300ms
+        float attack_ms = ATTACK_MIN_MS + (atk_val * ATTACK_RANGE_MS); // 1ms to 300ms
         comp.SetAttack(attack_ms);
 
         float rel_val    = 1.0f - hw.adc.GetFloat(kReleasePot);
-        float release_ms = 10.0f + (rel_val * 990.0f); // 10ms to 1000ms
+        float release_ms = RELEASE_MIN_MS + (rel_val * RELEASE_RANGE_MS); // 10ms to 1000ms
         comp.SetRelease(release_ms);
 
         float mix_val = 1.0f - hw.adc.GetFloat(kMixPot);
@@ -292,10 +293,10 @@ int main(void)
         comp.SetSaturation(drive_val); // 0 to 1
 
         float width_val = 1.0f - hw.adc.GetFloat(kWidthPot);
-        comp.SetStereoWidth(width_val * 2.0f); // 0 to 2.0 (200%)
+        comp.SetStereoWidth(width_val * STEREO_WIDTH_MAX); // 0 to 2.0 (200%)
 
         float output_val = 1.0f - hw.adc.GetFloat(kOutputPot);
-        float makeup_db  = output_val * 24.0f; // 0 to 24 dB makeup
+        float makeup_db  = output_val * MAKEUP_GAIN_MAX_DB; // 0 to 24 dB makeup
         comp.SetMakeupGain(makeup_db);
 
         // 2. Read Switch and Update Saturation Mode
@@ -357,7 +358,7 @@ int main(void)
                      FLT_VAR3(release_ms),
                      FLT_VAR3(mix_val),
                      FLT_VAR3(drive_val),
-                     FLT_VAR3(width_val * 2.0f),
+                     FLT_VAR3(width_val * STEREO_WIDTH_MAX),
                      FLT_VAR3(makeup_db));
         hw.PrintLine("Pre:" FLT_FMT3 " Post:" FLT_FMT3 " C:" FLT_FMT3
                      " F:%s S1:%d S2:%d M:%s",
