@@ -158,7 +158,8 @@ int main(void)
         hw.DelayMs(BOOT_FLASH_DELAY_MS);
     }
 
-    hw.SetAudioBlockSize(AUDIO_BLOCK_SIZE); // samples per callback; 4 is low-latency default
+    hw.SetAudioBlockSize(
+        AUDIO_BLOCK_SIZE); // samples per callback; 4 is low-latency default
 
     sample_rate = hw.AudioSampleRate();
 
@@ -167,16 +168,19 @@ int main(void)
     // NOTE: Pin assignments for Cutoff, Width, and Output have been swapped
     // to match physical wiring based on diagnostics.
     AdcChannelConfig adc_cfg[kNumAdcChannels];
-    adc_cfg[kScInput].InitSingle(hw.GetPin(PIN_SC_INPUT)); // A10 / D25 = sidechain input
-    adc_cfg[kFilterCutoffPot].InitSingle(hw.GetPin(PIN_FILTER_CUTOFF)); // A6  / D21
-    adc_cfg[kThresholdPot].InitSingle(hw.GetPin(PIN_THRESHOLD_POT));    // A0  / D15
-    adc_cfg[kRatioPot].InitSingle(hw.GetPin(PIN_RATIO_POT));        // A1  / D16
-    adc_cfg[kAttackPot].InitSingle(hw.GetPin(PIN_ATTACK_POT));       // A2  / D17
-    adc_cfg[kReleasePot].InitSingle(hw.GetPin(PIN_RELEASE_POT));      // A3  / D18
-    adc_cfg[kMixPot].InitSingle(hw.GetPin(PIN_MIX_POT));          // A4  / D19
-    adc_cfg[kDrivePot].InitSingle(hw.GetPin(PIN_DRIVE_POT));        // A5  / D20
-    adc_cfg[kWidthPot].InitSingle(hw.GetPin(PIN_WIDTH_POT));        // A7  / D22
-    adc_cfg[kOutputPot].InitSingle(hw.GetPin(PIN_OUTPUT_POT));       // A8  / D23
+    adc_cfg[kScInput].InitSingle(
+        hw.GetPin(PIN_SC_INPUT)); // A10 / D25 = sidechain input
+    adc_cfg[kFilterCutoffPot].InitSingle(
+        hw.GetPin(PIN_FILTER_CUTOFF)); // A6  / D21
+    adc_cfg[kThresholdPot].InitSingle(
+        hw.GetPin(PIN_THRESHOLD_POT));                           // A0  / D15
+    adc_cfg[kRatioPot].InitSingle(hw.GetPin(PIN_RATIO_POT));     // A1  / D16
+    adc_cfg[kAttackPot].InitSingle(hw.GetPin(PIN_ATTACK_POT));   // A2  / D17
+    adc_cfg[kReleasePot].InitSingle(hw.GetPin(PIN_RELEASE_POT)); // A3  / D18
+    adc_cfg[kMixPot].InitSingle(hw.GetPin(PIN_MIX_POT));         // A4  / D19
+    adc_cfg[kDrivePot].InitSingle(hw.GetPin(PIN_DRIVE_POT));     // A5  / D20
+    adc_cfg[kWidthPot].InitSingle(hw.GetPin(PIN_WIDTH_POT));     // A7  / D22
+    adc_cfg[kOutputPot].InitSingle(hw.GetPin(PIN_OUTPUT_POT));   // A8  / D23
 
     hw.adc.Init(adc_cfg, kNumAdcChannels);
     hw.adc.Start();
@@ -260,7 +264,8 @@ int main(void)
 
         // 2. Read Pots and Update Parameters
         float thresh_val  = 1.0f - hw.adc.GetFloat(kThresholdPot);
-        current_threshold = THRESHOLD_MIN_DB + (thresh_val * THRESHOLD_RANGE_DB); // -60 to 0 dB
+        current_threshold = THRESHOLD_MIN_DB
+                            + (thresh_val * THRESHOLD_RANGE_DB); // -60 to 0 dB
         comp.SetThreshold(current_threshold);
 
         float ratio_val = 1.0f - hw.adc.GetFloat(kRatioPot);
@@ -278,12 +283,14 @@ int main(void)
         }
         comp.SetRatio(ratio);
 
-        float atk_val   = 1.0f - hw.adc.GetFloat(kAttackPot);
-        float attack_ms = ATTACK_MIN_MS + (atk_val * ATTACK_RANGE_MS); // 1ms to 300ms
+        float atk_val = 1.0f - hw.adc.GetFloat(kAttackPot);
+        float attack_ms
+            = ATTACK_MIN_MS + (atk_val * ATTACK_RANGE_MS); // 1ms to 300ms
         comp.SetAttack(attack_ms);
 
-        float rel_val    = 1.0f - hw.adc.GetFloat(kReleasePot);
-        float release_ms = RELEASE_MIN_MS + (rel_val * RELEASE_RANGE_MS); // 10ms to 1000ms
+        float rel_val = 1.0f - hw.adc.GetFloat(kReleasePot);
+        float release_ms
+            = RELEASE_MIN_MS + (rel_val * RELEASE_RANGE_MS); // 10ms to 1000ms
         comp.SetRelease(release_ms);
 
         float mix_val = 1.0f - hw.adc.GetFloat(kMixPot);

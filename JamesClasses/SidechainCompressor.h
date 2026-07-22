@@ -29,6 +29,34 @@
  *   comp.Process(sc_in, &main_l, &main_r);
  */
 
+class Oversampler2x {
+ public:
+  void Reset() {
+    last_in_ = 0.0f;
+    last_in_down_ = 0.0f;
+  }
+
+  // Upsample a single sample to 2 samples: out0 and out1
+  void Upsample(float in, float& out0, float& out1) {
+    // Linear interpolation upsampler
+    out0 = in;
+    out1 = 0.5f * (in + last_in_);
+    last_in_ = in;
+  }
+
+  // Downsample 2 samples (in0, in1) to 1 sample
+  float Downsample(float in0, float in1) {
+    // 2-point moving average filter downsampler
+    float out = 0.5f * (in0 + last_in_down_);
+    last_in_down_ = in1;
+    return out;
+  }
+
+ private:
+  float last_in_ = 0.0f;
+  float last_in_down_ = 0.0f;
+};
+
 class SidechainCompressor {
  public:
   enum class SatMode { kSoft, kFold, kDucker };
@@ -57,6 +85,9 @@ class SidechainCompressor {
     // State
     env_           = 0.0f;
     gr_smooth_db_  = 0.0f;
+
+    os_l_.Reset();
+    os_r_.Reset();
 
     UpdateCoeffs();
   }
@@ -147,8 +178,8 @@ class SidechainCompressor {
 
     // --- 6. Saturation (Output stage) ---
     if (sat_amount_ > 0.0f) {
-      wet_l = Saturate(wet_l);
-      wet_r = Saturate(wet_r);
+      wet_l = Saturate(wet_l, os_l_);
+      wet_r = Saturate(wet_r, os_r_);
     }
 
     // --- 7. Wet/dry mix ---
@@ -196,19 +227,20 @@ class SidechainCompressor {
     return y / drive;
   }
 
-  float Saturate(float x) const {
-    if (sat_mode_ == SatMode::kDucker) {
-      return x; // Bypass output stage processing completely
-    }
+  float SoftClipCubic(float x) const {
+    if (x <= -1.5f) return -1.0f;
+    if (x >= 1.5f) return 1.0f;
+    return x * (1.0f - (x * x) / 6.75f);
+  }
+
+  float SaturatedSample(float x) const {
     float driven = x * (1.0f + sat_amount_ * 4.0f);  // pre-gain into sat stage
     float y;
     switch (sat_mode_) {
       case SatMode::kSoft:
-        // Tanh soft clip — smooth, tube-like
-        y = tanhf(driven);
+        y = SoftClipCubic(driven);
         break;
       case SatMode::kFold:
-        // Wavefolding — folds signal back on itself
         y = Wavefold(driven);
         break;
       default:
@@ -216,6 +248,23 @@ class SidechainCompressor {
     }
     // Compensate for pre-gain so output level stays roughly consistent
     return y / (1.0f + sat_amount_ * 4.0f);
+  }
+
+  float Saturate(float x, Oversampler2x& os) {
+    if (sat_mode_ == SatMode::kDucker) {
+      return x; // Bypass output stage processing completely
+    }
+
+    // Upsample 1x sample to 2 samples at 2x rate
+    float x0, x1;
+    os.Upsample(x, x0, x1);
+
+    // Apply saturation non-linearity at 2x rate
+    float y0 = SaturatedSample(x0);
+    float y1 = SaturatedSample(x1);
+
+    // Downsample back to 1x sample
+    return os.Downsample(y0, y1);
   }
 
   float Wavefold(float x) const {
@@ -273,6 +322,8 @@ class SidechainCompressor {
   float gr_smooth_db_;   // smoothed gain reduction in dB
   float att_coeff_;
   float rel_coeff_;
+  Oversampler2x os_l_;   // 2x oversampler for Left channel
+  Oversampler2x os_r_;   // 2x oversampler for Right channel
 };
 
 #endif
