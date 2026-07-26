@@ -25,6 +25,7 @@ enum class FilterMode
     kHPF
 };
 volatile FilterMode current_filter_mode = FilterMode::kLPF;
+volatile bool effect_engaged = true;
 
 volatile float current_threshold  = -20.0f;
 volatile float debug_sc_pre_peak  = 0.0f;
@@ -44,6 +45,8 @@ volatile float debug_sc_post_peak = 0.0f;
 DaisySeed           hw;
 SidechainCompressor comp;
 dsy_gpio            led;
+dsy_gpio            footswitch;
+dsy_gpio            led_footswitch;
 dsy_gpio            sw_sat1, sw_sat2;
 dsy_gpio            filter_sw1, filter_sw2;
 
@@ -75,6 +78,18 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
                    size_t                    size)
 {
+    // Bypass: pass through audio unchanged when effect is disengaged
+    if(!effect_engaged)
+    {
+        for(size_t i = 0; i < size; i++)
+        {
+            out[0][i] = in[0][i];
+            out[1][i] = in[1][i];
+        }
+        dsy_gpio_write(&led, 0);
+        return;
+    }
+
     static float last_sc_in_raw = 0.0f;
     float        sc_target      = hw.adc.GetFloat(kScInput);
     float        sc_start       = last_sc_in_raw;
@@ -231,6 +246,18 @@ int main(void)
     led.pull = DSY_GPIO_NOPULL;
     dsy_gpio_init(&led);
 
+    // ── Footswitch init (latching, wired to GND — active-LOW with pull-up) ──
+    footswitch.pin  = hw.GetPin(PIN_FOOTSWITCH);
+    footswitch.mode = DSY_GPIO_MODE_INPUT;
+    footswitch.pull = DSY_GPIO_PULLUP;
+    dsy_gpio_init(&footswitch);
+
+    // ── Footswitch LED init ─────────────────────────────────────────────────
+    led_footswitch.pin  = hw.GetPin(PIN_LED_FOOTSWITCH);
+    led_footswitch.mode = DSY_GPIO_MODE_OUTPUT_PP;
+    led_footswitch.pull = DSY_GPIO_NOPULL;
+    dsy_gpio_init(&led_footswitch);
+
     for(int i = 0; i < INIT_FLASH_COUNT; i++)
     {
         dsy_gpio_write(&led, 1);
@@ -245,6 +272,10 @@ int main(void)
 
     while(true)
     {
+        // 0. Read footswitch (active-LOW: closed = grounded = engaged)
+        effect_engaged = !dsy_gpio_read(&footswitch);
+        dsy_gpio_write(&led_footswitch, effect_engaged ? 1 : 0);
+
         // 1. Read Filter Controls
         // NOTE: all raw ADC readings are inverted (1.0f - val) to compensate
         // for reversed GND/3.3V wiring on the potentiometers.
