@@ -25,9 +25,12 @@ A desktop stereo compressor with sidechain input, built around an Electrosmith D
 | Width | D22 (A7) | 0 to 200% (Stereo Width) |
 | Output | D23 (A8) | 0 to +24 dB (Makeup Gain) |
 | **Cutoff** | **D21 (A6)** | 20Hz to 20kHz (SC Filter) |
+| **Footswitch** | **D13** | Latching bypass. Engaged = effect on, disengaged = clean pass-through. |
+| Footswitch LED | D14 | Solid on when engaged, off when bypassed. |
 
 ### Visual Feedback
-- **Sidechain LED**: Pin **D30**. Pulses with the sidechain envelope.
+- **Footswitch LED**: Pin **D14**. Solid on when effect is engaged, off when bypassed.
+- **Sidechain LED**: Pin **D30**. Pulses with the sidechain envelope (only active when effect is engaged).
 
 ### Utility
 - **Bootloader Button**: Pin **D8 (Board Pin 9)**. 

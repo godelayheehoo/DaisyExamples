@@ -240,7 +240,7 @@
 <body>
 
 <header>
-  <div class="label">Build Reference / v2</div>
+  <div class="label">Build Reference / v3</div>
   <h1>Stereo Sidechain<br>Compressor</h1>
   <div class="sub">Electrosmith Daisy Seed · Breadboard build · No SMD</div>
 </header>
@@ -251,6 +251,7 @@
   <a href="#signal">Signal flow</a>
   <a href="#controls">Controls</a>
   <a href="#wiring">Complete wiring summary</a>
+  <a href="#footswitch">Footswitch bypass</a>
   <a href="#boot">Bootloader entry button</a>
   <a href="#notes">Notes</a>
 </div>
@@ -301,6 +302,8 @@
     <tr><td>Output</td><td>A8 / D23</td><td>0 to 100%</td><td>Final output level trim</td></tr>
     <tr><td>SC Filter Cutoff</td><td>A6 / D21</td><td>20Hz to 20kHz</td><td>Cutoff frequency of the sidechain filter</td></tr>
     <tr><td>SC Filter Type</td><td>D11 + D12</td><td>LPF / BPF / HPF</td><td>Filter mode applied to sidechain signal. Center position = BPF.</td></tr>
+    <tr><td>Footswitch</td><td>D13</td><td>On / Off</td><td>Latching bypass switch. Engaged = effect active, disengaged = clean pass-through.</td></tr>
+    <tr><td>Footswitch LED</td><td>D14</td><td>On / Off</td><td>Indicates effect status. Solid on when engaged, off when bypassed.</td></tr>
     <tr><td>Bootloader Entry</td><td>D8</td><td>Logic Low</td><td>Hold at boot to enter bootloader mode</td></tr>
   </tbody>
 </table>
@@ -360,7 +363,20 @@
   <li>Center position (neither pin grounded) → BPF</li>
 </ul>
 
- 
+<h3 id="footswitch">Footswitch bypass</h3>
+<p>A latching footswitch controls effect bypass. When engaged (closed), the effect is active and the footswitch LED lights solid. When disengaged (open), audio passes through unprocessed and the LED is off.</p>
+<ul>
+  <li>One lug of the latching footswitch → <span class="pin">D13</span></li>
+  <li>Other lug → GND</li>
+  <li>Configure D13 with internal pull-up in firmware (active-LOW: closed = grounded = engaged)</li>
+</ul>
+
+<h3>Footswitch LED</h3>
+<ul>
+  <li><span class="pin">D14</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
+  <li>LED cathode (short leg) → GND</li>
+  <li>Solid on when effect is engaged, off when bypassed.</li>
+</ul>
 
 <h3>Sidechain activity LED</h3>
 <ul>
@@ -398,7 +414,7 @@
 </ul>
 
 <footer>
-  Stereo Sidechain Compressor · Build Reference v2 · Daisy Seed / TL072 / No SMD
+  Stereo Sidechain Compressor · Build Reference v3 · Daisy Seed / TL072 / No SMD
 </footer>
 
 </body>
