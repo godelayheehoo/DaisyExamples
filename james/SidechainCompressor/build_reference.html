@@ -240,7 +240,7 @@
 <body>
 
 <header>
-  <div class="label">Build Reference / v3</div>
+  <div class="label">Build Reference / v5</div>
   <h1>Stereo Sidechain<br>Compressor</h1>
   <div class="sub">Electrosmith Daisy Seed · Breadboard build · No SMD</div>
 </header>
@@ -268,12 +268,13 @@
 <p>Left and right audio inputs connect directly to the Daisy Seed's audio codec pins. The Seed processes the stereo pair — applying gain reduction driven by the sidechain envelope, then saturation, then stereo width adjustment — and outputs on the left and right audio output pins. No external components needed in this path.</p>
 
 <h3>Sidechain path</h3>
-<p>The sidechain input cannot connect directly to the Seed's ADC pins, which expect 0–3.3V. The signal passes through a conditioning circuit built around a <span class="component">TL072</span> op-amp configured as a non-inverting amplifier with mid-rail biasing for single-supply operation:</p>
+<p>The sidechain input cannot connect directly to the Seed's ADC pins, which expect 0–3.3V. The signal passes through a conditioning circuit built around one half of a <span class="component">NE5532</span> dual op-amp (U1A), configured as a non-inverting amplifier with mid-rail biasing for single-supply operation. The op-amp package's supply pins (and the bias divider) run from a dedicated regulated rail rather than raw barrel-jack voltage — see Power section below.</p>
 <ul>
-  <li>A <span class="component">100nF</span> cap blocks any DC offset from the source device</li>
-  <li>Two <span class="component">100kΩ</span> resistors form a divider between 9V and GND, biasing pin 3 at 4.5V — required for correct single-supply operation</li>
-  <li>A <span class="component">10kΩ</span> resistor (Rg) from pin 2 to GND and a <span class="component">100kΩ</span> resistor (Rf) from pin 1 to pin 2 set the gain to approximately 11x</li>
-  <li>A second <span class="component">100nF</span> cap on the output (pin 1) blocks the 4.5V DC bias before the signal reaches the ADC pin</li>
+  <li>A <span class="component">100nF</span> cap (C1) blocks any DC offset from the source device</li>
+  <li>Two <span class="component">100kΩ</span> resistors (R1, R2) form a divider between the regulated <span class="pin">9V_Clean</span> rail and GND, biasing the op-amp's non-inverting input (pin 3) at mid-rail — required for correct single-supply operation</li>
+  <li>A <span class="component">10kΩ</span> resistor (R3, "Rg") from pin 2 to GND and a <span class="component">100kΩ</span> resistor (R4, "Rf") from pin 1 to pin 2 set the gain to approximately 11x. <b>Under review</b> — this gain may be reduced (Rf → ~47k or ~33k) if the sidechain input clips with the op-amp running at full regulated voltage; confirm current value against the schematic before building.</li>
+  <li>A second <span class="component">100nF</span> cap (C2) on the output (pin 1) blocks the mid-rail DC bias before the signal reaches the ADC pin</li>
+  <li>Two bias resistors (~100kΩ each) at the Daisy's ADC input pin (D25) — one to <span class="pin">3.3V_A</span>, one to GND — establish a defined ~1.65V mid-rail reference at the pin itself. Without these, the AC-coupled signal has no defined center point and the ADC reading can rail to one extreme.</li>
 </ul>
 <p>In software, the Seed tracks the amplitude of this signal using an envelope follower, and uses that envelope as the control signal for the compressor on the stereo path.</p>
 
@@ -322,18 +323,30 @@
 <h3>Sidechain input</h3>
 <p>One 1/4" TS jack. Full signal chain:</p>
 <ul>
-  <li>Jack tip → one leg of <span class="component">100nF</span> cap (DC blocking)</li>
-  <li>Other leg of cap → <span class="pin">pin 3</span> of TL072</li>
-  <li><span class="pin">Pin 3</span> also connects to the junction of two <span class="component">100kΩ</span> resistors in series between 9V and GND — this biases pin 3 at 4.5V (mid-rail)</li>
-  <li><span class="pin">Pin 2</span> → <span class="component">10kΩ</span> resistor → GND (this is Rg, sets gain)</li>
-  <li><span class="pin">Pin 1</span> → <span class="component">100kΩ</span> resistor → <span class="pin">pin 2</span> (this is Rf, feedback)</li>
-  <li><span class="pin">Pin 1</span> → <span class="component">100nF</span> cap → <span class="pin">A10 / D25</span> on Daisy Seed (DC blocking on output)</li>
-  <li><span class="pin">Pin 8</span> → 9V. <span class="pin">Pin 4</span> → GND</li>
+  <li>Jack tip → one leg of C1 (<span class="component">100nF</span>, DC blocking)</li>
+  <li>Other leg of C1 → <span class="pin">pin 3</span> of U1A (NE5532)</li>
+  <li><span class="pin">Pin 3</span> also connects to the junction of R1 and R2 (<span class="component">100kΩ</span> each) in series between <span class="pin">9V_Clean</span> and GND — this biases pin 3 at mid-rail</li>
+  <li><span class="pin">Pin 2</span> → R3 (<span class="component">10kΩ</span>) → GND (this is Rg, sets gain)</li>
+  <li><span class="pin">Pin 1</span> → R4 (<span class="component">100kΩ</span>, verify against schematic — may be reduced) → <span class="pin">pin 2</span> (this is Rf, feedback)</li>
+  <li><span class="pin">Pin 1</span> → C2 (<span class="component">100nF</span>) → <span class="pin">A10 / D25</span> on Daisy Seed (DC blocking on output)</li>
+  <li>At <span class="pin">D25</span>: two <span class="component">100kΩ</span> bias resistors, one to <span class="pin">3.3V_A</span> and one to GND, to stiffen the pin with a defined mid-rail reference</li>
+  <li><span class="pin">Pin 8</span> (V+) → <span class="pin">9V_Clean</span>. <span class="pin">Pin 4</span> (V-/GND) → GND. Note: pins 8/4 are the physical supply pins for the whole NE5532 package — both op-amp halves (U1A and U1B) share them, even though schematic tools draw them on one "unit" of the symbol.</li>
   <li>Jack sleeve → GND</li>
 </ul>
 
 <div class="callout">
-  Component summary: 2× 100nF ceramic cap, 2× 100kΩ resistor (bias divider), 1× 100kΩ resistor (Rf), 1× 10kΩ resistor (Rg), 1× TL072 DIP-8.
+  Component summary: 2× 100nF ceramic cap (C1, C2), 2× 100kΩ resistor (R1/R2, bias divider), 1× resistor (R4, "Rf" — nominally 100kΩ, confirm current value), 1× 10kΩ resistor (R3, "Rg"), 2× 100kΩ resistor (D25 bias pair), 1× NE5532P DIP-8 (dual op-amp; second half, U1B, configured as a unity-gain follower — see below — no additional passives required).
+</div>
+
+<h3>Unused op-amp half (U1B)</h3>
+<p>The NE5532 is a dual op-amp; only one half (U1A) is used for sidechain conditioning. Leaving the second half's inputs floating risks unpredictable current draw or oscillation, which can inject noise into the shared supply pins (8/4) used by both halves. Configure U1B as a unity-gain voltage follower referenced to the existing mid-rail bias node, using no additional components:</p>
+<ul>
+  <li><span class="pin">Pin 5</span> (IN+) → the same R1/R2 mid-rail bias node already feeding U1A's <span class="pin">pin 3</span></li>
+  <li><span class="pin">Pin 7</span> (OUT) → <span class="pin">pin 6</span> (IN−) — direct wire, closes the feedback loop as a voltage follower</li>
+  <li><span class="pin">Pin 7</span> output is otherwise left unconnected — not used anywhere else in the circuit</li>
+</ul>
+<div class="callout">
+  In KiCad: place the NE5532P symbol's second unit under the same reference designator (U1) rather than as a separate part — right-click → Edit Properties → Unit selector if it's not already assigned correctly. Confirm pin numbers 5/6/7 against the symbol's unit table before wiring, since some library symbols split units differently. Note: your library's symbol may label this second unit "U1C" rather than the more conventional "U1B" — that's just this symbol's internal unit lettering, not a different physical part; confirm it's still reference U1 (same package) before wiring.
 </div>
 
 <h3>Potentiometers (all 8, wired identically)</h3>
@@ -396,25 +409,33 @@
 
 <h3>Power</h3>
 <ul>
-  <li>Daisy Seed: powered via USB during development. For finished unit, use the VIN pin (accepts 4.5–17V) or regulated 5V on the 5V pin.</li>
-  <li>TL072: powered from 9V rail. <span class="pin">Pin 8</span> → 9V, <span class="pin">Pin 4</span> → GND.</li>
-  <li>Add <span class="component">100nF</span> decoupling cap between <span class="pin">3V3_A</span> and GND, close to the Seed.</li>
-  <li>Add <span class="component">100nF</span> decoupling cap across the TL072 supply pins (pin 8 to pin 4), close to the chip.</li>
+  <li>Daisy Seed: powered via USB during development. For finished unit, use the VIN pin (accepts 4.5–17V) or regulated 5V on the 5V pin. VIN stays on the raw, unregulated barrel-jack rail — do not route it through the LDO below.</li>
+  <li>Barrel jack → <span class="component">1N5819</span> reverse-polarity protection diode (D1) → raw <span class="pin">+9V</span> node. This raw node feeds Daisy VIN directly.</li>
+  <li><span class="component">LM2940T-9.0</span> LDO (U2, TO-220): IN ← raw <span class="pin">+9V</span> (after D1), GND → common ground, OUT → new <span class="pin">9V_Clean</span> net. This regulated rail feeds the NE5532's supply pins (8/4) and the R1/R2 bias divider — nothing else taps raw +9V for analog use.</li>
+  <li><span class="component">100nF</span> ceramic cap from <span class="pin">9V_Clean</span> to GND, right at the LDO's OUT pin (local stability bypass).</li>
+  <li><span class="component">100nF</span> decoupling cap between <span class="pin">3V3_A</span> and GND, close to the Seed.</li>
+  <li><span class="component">100nF</span> decoupling cap (C4) across the NE5532 supply pins (pin 8 to pin 4), close to the chip.</li>
 </ul>
+<div class="callout warn">
+  Rationale: running the op-amp directly off unregulated barrel-jack voltage was the source of an audible whine (barrel jack + sidechain connected = whine; USB power or no sidechain = quiet). The LDO isolates the analog supply from raw barrel-jack noise/ripple. Confirmed to have resolved the whine as of the last build session.
+</div>
 
 <!-- NOTES -->
 <h2 id="notes">Notes</h2>
 <ul>
-  <li>Use <span class="pin">3V3_A</span> (analog 3.3V), not the digital 3V3 pin, as the reference for pot wiring. The analog reference is isolated from digital switching noise.</li>
+  <li>Use <span class="pin">3V3_A</span> (analog 3.3V), not the digital 3V3 pin, as the reference for pot wiring and the D25 bias pair. The analog reference is isolated from digital switching noise.</li>
   <li>Connect both AGND and DGND pins on the Seed to your ground rail.</li>
-  <li>The sidechain conditioning circuit is five passive components plus one op-amp. It fits on a small section of breadboard.</li>
-  <li>The mid-rail bias (two 100kΩ resistors to 4.5V) is required for single-supply operation of the TL072. Without it the output saturates to the supply rail.</li>
-  <li>The output coupling cap (second 100nF after pin 1) is required to strip the 4.5V DC bias before the signal reaches the Daisy ADC pin, which must stay within 0–3.3V.</li>
-  <li>If the source device (e.g. Pocket Operator) has low output level, reduce Rg to increase gain. Gain = 1 + (Rf / Rg). With Rf = 100kΩ and Rg = 2.2kΩ, gain ≈ 46x.</li>
+  <li>The mid-rail bias divider (R1/R2 to mid-rail) is required for single-supply operation of the NE5532. Without it the output saturates to a supply rail.</li>
+  <li>The output coupling cap (C2) is required to strip the mid-rail DC bias before the signal reaches the Daisy ADC pin, which must stay within 0–3.3V.</li>
+  <li>The D25 bias pair (100kΩ to 3.3V_A, 100kΩ to GND) is separately required — without it, the ADC pin itself has no defined center point for the AC-coupled signal to sit on, and readings can rail or "ghost" the previous ADC channel's value.</li>
+  <li>If the sidechain input clips (pre-filter reading pinned near 0 dB, no response to signal) after the LDO is in place, first confirm the D25 bias pair is present; if it still clips, reduce R4 ("Rf") from 100kΩ toward 47kΩ or 33kΩ to lower gain.</li>
+  <li>If the source device (e.g. Pocket Operator) has low output level instead, reduce R3 ("Rg") to increase gain. Gain = 1 + (Rf / Rg).</li>
+  <li>Op-amp supply noise is the dominant noise source in this architecture — running U1A/U1C directly off unregulated barrel-jack voltage caused an audible whine, resolved by adding the LM2940 LDO on a dedicated <span class="pin">9V_Clean</span> rail feeding only the analog section (not Daisy VIN).</li>
+  <li>U1B (second NE5532 half) is configured as a unity-gain follower off the existing mid-rail bias node (see Unused op-amp half section) rather than left floating — this avoids unpredictable current draw or oscillation that could couple noise into the shared supply pins (8/4).</li>
 </ul>
 
 <footer>
-  Stereo Sidechain Compressor · Build Reference v3 · Daisy Seed / TL072 / No SMD
+  Stereo Sidechain Compressor · Build Reference v5 · Daisy Seed / NE5532 + LM2940 LDO / No SMD
 </footer>
 
 </body>

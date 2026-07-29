@@ -7,7 +7,7 @@
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-// #define DEBUG_LOG 1
+#define DEBUG_LOG 1
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardcoded parameter values — swap these for pot readings once wired up.
@@ -25,7 +25,7 @@ enum class FilterMode
     kHPF
 };
 volatile FilterMode current_filter_mode = FilterMode::kLPF;
-volatile bool effect_engaged = true;
+volatile bool       effect_engaged      = true;
 
 volatile float current_threshold  = -20.0f;
 volatile float debug_sc_pre_peak  = 0.0f;
@@ -399,14 +399,15 @@ int main(void)
                      FLT_VAR3(width_val * STEREO_WIDTH_MAX),
                      FLT_VAR3(makeup_db));
         hw.PrintLine("Pre:" FLT_FMT3 " Post:" FLT_FMT3 " C:" FLT_FMT3
-                     " F:%s S1:%d S2:%d M:%s",
+                     " F:%s S1:%d S2:%d M:%s Byp:%s",
                      FLT_VAR3(pre_db),
                      FLT_VAR3(post_db),
                      FLT_VAR3(cutoff_hz),
                      filt_str,
                      s1 ? 1 : 0,
                      s2 ? 1 : 0,
-                     sat_str);
+                     sat_str,
+                     effect_engaged ? "OFF" : "ON");
         hw.DelayMs(250);
 #endif
     }
