@@ -7,7 +7,7 @@
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-#define DEBUG_LOG 1
+// #define DEBUG_LOG 1
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardcoded parameter values — swap these for pot readings once wired up.
@@ -15,6 +15,7 @@ using namespace daisy;
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Saturation mode state
+
 SidechainCompressor::SatMode current_sat_mode
     = SidechainCompressor::SatMode::kSoft;
 
@@ -272,6 +273,53 @@ int main(void)
 
     while(true)
     {
+        // =====================================================================
+        // SIDECHAIN TEST MODE — all pots/switches disabled, using hardcoded
+        // values below. Re-enable hardware reads by changing #if 0 to #if 1.
+        // =====================================================================
+
+        // Force effect always engaged (no footswitch needed)
+        effect_engaged = true;
+        dsy_gpio_write(&led_footswitch, 1);
+
+        // Hardcoded sidechain-test-friendly defaults
+        float cutoff_hz = 1000.0f; // neutral midpoint
+        sc_filter.SetFreq(cutoff_hz);
+        current_filter_mode = FilterMode::kLPF;
+
+        current_threshold = -20.0f; // moderate threshold
+        comp.SetThreshold(current_threshold);
+
+        float ratio = 4.0f; // clear compression, not limiting
+        comp.SetRatio(ratio);
+
+        float attack_ms = 1.0f; // fast attack to hear sidechain react
+        comp.SetAttack(attack_ms);
+
+        float release_ms = 150.0f; // natural release
+        comp.SetRelease(release_ms);
+
+        float mix_val = 1.0f; // 100% wet
+        comp.SetMix(mix_val);
+
+        float drive_val = 0.0f; // no saturation
+        comp.SetSaturation(drive_val);
+
+        float width_val = 1.0f; // normal stereo
+        comp.SetStereoWidth(width_val);
+
+        float makeup_db = 0.0f; // unity output
+        comp.SetMakeupGain(makeup_db);
+
+        current_sat_mode = SidechainCompressor::SatMode::kSoft;
+        comp.SetSatMode(current_sat_mode);
+
+        // Switch/pot dummy values for debug log
+        bool s1 = false;
+        bool s2 = false;
+
+#if 0
+        // ── ORIGINAL HARDWARE READS (disabled for sidechain testing) ────────
         // 0. Read footswitch (active-LOW: closed = grounded = engaged)
         effect_engaged = !dsy_gpio_read(&footswitch);
         dsy_gpio_write(&led_footswitch, effect_engaged ? 1 : 0);
@@ -280,7 +328,7 @@ int main(void)
         // NOTE: all raw ADC readings are inverted (1.0f - val) to compensate
         // for reversed GND/3.3V wiring on the potentiometers.
         float cutoff_raw = 1.0f - hw.adc.GetFloat(kFilterCutoffPot);
-        float cutoff_hz  = CUTOFF_MIN_HZ * powf(CUTOFF_MAX_SCALE, cutoff_raw);
+        cutoff_hz  = CUTOFF_MIN_HZ * powf(CUTOFF_MAX_SCALE, cutoff_raw);
         sc_filter.SetFreq(cutoff_hz);
 
         bool f1 = !dsy_gpio_read(&filter_sw1); // true if grounded
@@ -302,7 +350,6 @@ int main(void)
         float ratio_val = 1.0f - hw.adc.GetFloat(kRatioPot);
         // Exponential mapping: 1:1 at min → 100:1 at max (at kInfinityCutoff)
         // Past kInfinityCutoff, the ratio becomes infinite (1:inf)
-        float ratio;
         if(ratio_val <= INFINITY_CUTOFF)
         {
             float normalized_ratio = ratio_val / INFINITY_CUTOFF;
@@ -315,32 +362,32 @@ int main(void)
         comp.SetRatio(ratio);
 
         float atk_val = 1.0f - hw.adc.GetFloat(kAttackPot);
-        float attack_ms
+        attack_ms
             = ATTACK_MIN_MS + (atk_val * ATTACK_RANGE_MS); // 1ms to 300ms
         comp.SetAttack(attack_ms);
 
         float rel_val = 1.0f - hw.adc.GetFloat(kReleasePot);
-        float release_ms
+        release_ms
             = RELEASE_MIN_MS + (rel_val * RELEASE_RANGE_MS); // 10ms to 1000ms
         comp.SetRelease(release_ms);
 
-        float mix_val = 1.0f - hw.adc.GetFloat(kMixPot);
+        mix_val = 1.0f - hw.adc.GetFloat(kMixPot);
         comp.SetMix(mix_val); // 0 to 1
 
-        float drive_val = 1.0f - hw.adc.GetFloat(kDrivePot);
+        drive_val = 1.0f - hw.adc.GetFloat(kDrivePot);
         comp.SetSaturation(drive_val); // 0 to 1
 
-        float width_val = 1.0f - hw.adc.GetFloat(kWidthPot);
+        width_val = 1.0f - hw.adc.GetFloat(kWidthPot);
         comp.SetStereoWidth(width_val * STEREO_WIDTH_MAX); // 0 to 2.0 (200%)
 
         float output_val = 1.0f - hw.adc.GetFloat(kOutputPot);
-        float makeup_db  = output_val * MAKEUP_GAIN_MAX_DB; // 0 to 24 dB makeup
+        makeup_db  = output_val * MAKEUP_GAIN_MAX_DB; // 0 to 24 dB makeup
         comp.SetMakeupGain(makeup_db);
 
         // 2. Read Switch and Update Saturation Mode
         // Logic for 3-pin On-Off-On toggle (Common to GND):
-        bool s1 = !dsy_gpio_read(&sw_sat1); // Position 1 (D26 Low)
-        bool s2 = !dsy_gpio_read(&sw_sat2); // Position 2 (D27 Low)
+        s1 = !dsy_gpio_read(&sw_sat1); // Position 1 (D26 Low)
+        s2 = !dsy_gpio_read(&sw_sat2); // Position 2 (D27 Low)
 
         if(s1 && !s2)
             current_sat_mode = SidechainCompressor::SatMode::kSoft;
@@ -351,6 +398,8 @@ int main(void)
                 kFold; // Center position (Both High)
 
         comp.SetSatMode(current_sat_mode);
+#endif // disabled for sidechain testing
+
 #ifdef DEBUG_LOG
         float pre_db
             = 20.0f
@@ -396,7 +445,7 @@ int main(void)
                      FLT_VAR3(release_ms),
                      FLT_VAR3(mix_val),
                      FLT_VAR3(drive_val),
-                     FLT_VAR3(width_val * STEREO_WIDTH_MAX),
+                     FLT_VAR3(width_val),
                      FLT_VAR3(makeup_db));
         hw.PrintLine("Pre:" FLT_FMT3 " Post:" FLT_FMT3 " C:" FLT_FMT3
                      " F:%s S1:%d S2:%d M:%s Byp:%s",
