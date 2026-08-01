@@ -15,6 +15,7 @@ constexpr int PIN_MIX_POT       = 19; // A4  / D19
 constexpr int PIN_DRIVE_POT     = 20; // A5  / D20
 constexpr int PIN_WIDTH_POT     = 22; // A7  / D22
 constexpr int PIN_OUTPUT_POT    = 23; // A8  / D23
+constexpr int PIN_UNUSED_POT    = 24; // A9  / D24
 
 // Saturation Mode Toggle Switch
 constexpr int PIN_SAT_SW1 = 26; // D26

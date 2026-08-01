@@ -65,6 +65,7 @@ enum AdcChannel
     kDrivePot,
     kWidthPot,
     kOutputPot,
+    kUnusedPot,
     kNumAdcChannels
 };
 
@@ -197,6 +198,7 @@ int main(void)
     adc_cfg[kDrivePot].InitSingle(hw.GetPin(PIN_DRIVE_POT));     // A5  / D20
     adc_cfg[kWidthPot].InitSingle(hw.GetPin(PIN_WIDTH_POT));     // A7  / D22
     adc_cfg[kOutputPot].InitSingle(hw.GetPin(PIN_OUTPUT_POT));   // A8  / D23
+    adc_cfg[kUnusedPot].InitSingle(hw.GetPin(PIN_UNUSED_POT));   // A9  / D24
 
     hw.adc.Init(adc_cfg, kNumAdcChannels);
     hw.adc.Start();
@@ -342,6 +344,8 @@ int main(void)
         float makeup_db  = output_val * MAKEUP_GAIN_MAX_DB; // 0 to 24 dB makeup
         comp.SetMakeupGain(makeup_db);
 
+        float unused_val = 1.0f - hw.adc.GetFloat(kUnusedPot);
+
         // 3. Read Switch and Update Saturation Mode
         // Logic for 3-pin On-Off-On toggle (Common to GND):
         bool s1 = !dsy_gpio_read(&sw_sat1); // Position 1 (D26 Low)
@@ -394,8 +398,8 @@ int main(void)
         }
 
         hw.PrintLine("T:" FLT_FMT3 " R:%s A:" FLT_FMT3 " Rel:" FLT_FMT3
-                     " M:" FLT_FMT3 " D:" FLT_FMT3 " W:" FLT_FMT3
-                     " O:" FLT_FMT3,
+                     " M:" FLT_FMT3 " D:" FLT_FMT3 " W:" FLT_FMT3 " O:" FLT_FMT3
+                     " U:" FLT_FMT3,
                      FLT_VAR3(current_threshold),
                      ratio_buf,
                      FLT_VAR3(attack_ms),
@@ -403,7 +407,8 @@ int main(void)
                      FLT_VAR3(mix_val),
                      FLT_VAR3(drive_val),
                      FLT_VAR3(width_val),
-                     FLT_VAR3(makeup_db));
+                     FLT_VAR3(makeup_db),
+                     FLT_VAR3(unused_val));
         hw.PrintLine("Pre:" FLT_FMT3 " Post:" FLT_FMT3 " C:" FLT_FMT3
                      " F:%s S1:%d S2:%d M:%s Byp:%s",
                      FLT_VAR3(pre_db),
