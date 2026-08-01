@@ -326,16 +326,16 @@
   <li>Jack tip → one leg of C1 (<span class="component">100nF</span>, DC blocking)</li>
   <li>Other leg of C1 → <span class="pin">pin 3</span> of U1A (NE5532)</li>
   <li><span class="pin">Pin 3</span> also connects to the junction of R1 and R2 (<span class="component">100kΩ</span> each) in series between <span class="pin">9V_Clean</span> and GND — this biases pin 3 at mid-rail</li>
-  <li><span class="pin">Pin 2</span> → R3 (<span class="component">10kΩ</span>) → GND (this is Rg, sets gain)</li>
-  <li><span class="pin">Pin 1</span> → R4 (<span class="component">100kΩ</span>, verify against schematic — may be reduced) → <span class="pin">pin 2</span> (this is Rf, feedback)</li>
+  <li><span class="pin">Pin 2</span> → Rg1 (<span class="component">10kΩ</span>) → GND (gain-setting resistor)</li>
+  <li><span class="pin">Pin 1</span> → Rf1 (<span class="component">47kΩ</span>) → <span class="pin">pin 2</span> (feedback resistor)</li>
   <li><span class="pin">Pin 1</span> → C2 (<span class="component">100nF</span>) → <span class="pin">A10 / D25</span> on Daisy Seed (DC blocking on output)</li>
-  <li>At <span class="pin">D25</span>: two <span class="component">100kΩ</span> bias resistors, one to <span class="pin">3.3V_A</span> and one to GND, to stiffen the pin with a defined mid-rail reference</li>
+  <li>At <span class="pin">D25</span>: R4 (<span class="component">100kΩ</span>) to <span class="pin">3.3V_A</span> and R3 (<span class="component">100kΩ</span>) to GND, to stiffen the pin with a defined mid-rail reference</li>
   <li><span class="pin">Pin 8</span> (V+) → <span class="pin">9V_Clean</span>. <span class="pin">Pin 4</span> (V-/GND) → GND. Note: pins 8/4 are the physical supply pins for the whole NE5532 package — both op-amp halves (U1A and U1B) share them, even though schematic tools draw them on one "unit" of the symbol.</li>
   <li>Jack sleeve → GND</li>
 </ul>
 
 <div class="callout">
-  Component summary: 2× 100nF ceramic cap (C1, C2), 2× 100kΩ resistor (R1/R2, bias divider), 1× resistor (R4, "Rf" — nominally 100kΩ, confirm current value), 1× 10kΩ resistor (R3, "Rg"), 2× 100kΩ resistor (D25 bias pair), 1× NE5532P DIP-8 (dual op-amp; second half, U1B, configured as a unity-gain follower — see below — no additional passives required).
+  Component summary: 2× 100nF ceramic cap (C1, C2), 2× 100kΩ resistor (R1/R2, bias divider), 1× 47kΩ resistor (Rf1, feedback), 1× 10kΩ resistor (Rg1, gain), 2× 100kΩ resistor (R3/R4, D25 bias pair), 1× NE5532P DIP-8 (dual op-amp; second half, U1B, configured as a unity-gain follower — see below — no additional passives required).
 </div>
 
 <h3>Unused op-amp half (U1B)</h3>
@@ -427,15 +427,15 @@
   <li>Connect both AGND and DGND pins on the Seed to your ground rail.</li>
   <li>The mid-rail bias divider (R1/R2 to mid-rail) is required for single-supply operation of the NE5532. Without it the output saturates to a supply rail.</li>
   <li>The output coupling cap (C2) is required to strip the mid-rail DC bias before the signal reaches the Daisy ADC pin, which must stay within 0–3.3V.</li>
-  <li>The D25 bias pair (100kΩ to 3.3V_A, 100kΩ to GND) is separately required — without it, the ADC pin itself has no defined center point for the AC-coupled signal to sit on, and readings can rail or "ghost" the previous ADC channel's value.</li>
-  <li>If the sidechain input clips (pre-filter reading pinned near 0 dB, no response to signal) after the LDO is in place, first confirm the D25 bias pair is present; if it still clips, reduce R4 ("Rf") from 100kΩ toward 47kΩ or 33kΩ to lower gain.</li>
-  <li>If the source device (e.g. Pocket Operator) has low output level instead, reduce R3 ("Rg") to increase gain. Gain = 1 + (Rf / Rg).</li>
+  <li>The D25 bias pair (R4, 100kΩ to 3.3V_A; R3, 100kΩ to GND) is separately required — without it, the ADC pin itself has no defined center point for the AC-coupled signal to sit on, and readings can rail or "ghost" the previous ADC channel's value.</li>
+  <li>If the sidechain input clips (pre-filter reading pinned near 0 dB, no response to signal) after the LDO is in place, first confirm the D25 bias pair is present; if it still clips, reduce Rf1 ("Rf") from 47kΩ toward 33kΩ or 22kΩ to lower gain.</li>
+  <li>If the source device (e.g. Pocket Operator) has low output level instead, reduce Rg1 ("Rg") to increase gain. Gain = 1 + (Rf1 / Rg1).</li>
   <li>Op-amp supply noise is the dominant noise source in this architecture — running U1A/U1C directly off unregulated barrel-jack voltage caused an audible whine, resolved by adding the LM2940 LDO on a dedicated <span class="pin">9V_Clean</span> rail feeding only the analog section (not Daisy VIN).</li>
   <li>U1B (second NE5532 half) is configured as a unity-gain follower off the existing mid-rail bias node (see Unused op-amp half section) rather than left floating — this avoids unpredictable current draw or oscillation that could couple noise into the shared supply pins (8/4).</li>
 </ul>
 
 <footer>
-  Stereo Sidechain Compressor · Build Reference v5 · Daisy Seed / NE5532 + LM2940 LDO / No SMD
+  Stereo Sidechain Compressor · Build Reference v6 · Daisy Seed / NE5532 + LM2940 LDO / No SMD
 </footer>
 
 </body>
