@@ -1,5 +1,5 @@
-#define DEBUG_MODE
-#define TEST_WEAR_LEVELING 1
+#define DEBUG_MODE 1
+// #define TEST_WEAR_LEVELING
 #include "daisy_seed.h"
 #include "daisysp.h"
 #include "constants.h"
@@ -62,7 +62,7 @@ WearLevelingStorage<PedalConfig, 4> storage(hw.qspi);
 // ── Pitch Detection (autocorrelation) ─────────────────────────────────────────
 // Runs in main loop, NOT in audio callback.
 // Operates on the stutter buffer after a capture completes.
-static void RunPitchDetection(uint32_t buffer_length)
+static void RunPitchDetection(uint32_t loop_start, uint32_t buffer_length)
 {
     const float sample_rate = SAMPLE_RATE;
     const float min_freq    = PITCH_MIN_FREQ;
@@ -83,11 +83,15 @@ static void RunPitchDetection(uint32_t buffer_length)
         return;
     }
 
+    auto get_sample = [](uint32_t offset) -> float
+    { return stutter_buf_l[offset % STUTTER_BUFFER_MAX_SAMPLES]; };
+
     // Compute energy of the signal (for normalization)
     float energy = 0.0f;
     for(uint32_t i = 0; i < buffer_length; i++)
     {
-        energy += stutter_buf_l[i] * stutter_buf_l[i];
+        float s = get_sample(loop_start + i);
+        energy += s * s;
     }
 
     if(energy < 1e-8f)
@@ -111,9 +115,11 @@ static void RunPitchDetection(uint32_t buffer_length)
 
         for(uint32_t i = 0; i < count; i++)
         {
-            sum += stutter_buf_l[i] * stutter_buf_l[i + lag];
-            energy_a += stutter_buf_l[i] * stutter_buf_l[i];
-            energy_b += stutter_buf_l[i + lag] * stutter_buf_l[i + lag];
+            float s_a = get_sample(loop_start + i);
+            float s_b = get_sample(loop_start + i + lag);
+            sum += s_a * s_b;
+            energy_a += s_a * s_a;
+            energy_b += s_b * s_b;
         }
 
         float norm = sqrtf(energy_a * energy_b);
@@ -147,6 +153,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                    size_t                    size)
 {
     static uint32_t write_pos              = 0;
+    static uint32_t loop_start_pos         = 0;
     static float    read_pos_accum         = 0.0f;
     static uint32_t active_buffer_length   = 48000;
     static bool     trigger_pending        = false;
@@ -176,9 +183,14 @@ void AudioCallback(AudioHandle::InputBuffer  in,
             out_l = in_l;
             out_r = in_r;
         }
-        // Handle State Transitions
+        // Handle State Transitions & Buffer Recording
         else if(current_state == STUTTER_IDLE)
         {
+            // Continuously record incoming audio into circular buffer in IDLE
+            stutter_buf_l[write_pos] = in_l;
+            stutter_buf_r[write_pos] = in_r;
+            write_pos = (write_pos + 1) % STUTTER_BUFFER_MAX_SAMPLES;
+
             if(trigger_pending)
             {
                 if(!trigger)
@@ -210,10 +222,29 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                            || (curr_ticks % subdiv_ticks == 0))
                         {
                             trigger_pending      = false;
-                            current_state        = STUTTER_RECORDING;
-                            write_pos            = 0;
                             active_buffer_length = runtime.buffer_length;
-                            runtime.state        = STUTTER_RECORDING;
+                            loop_start_pos
+                                = (write_pos + STUTTER_BUFFER_MAX_SAMPLES
+                                   - active_buffer_length)
+                                  % STUTTER_BUFFER_MAX_SAMPLES;
+                            runtime.loop_start_pos = loop_start_pos;
+                            read_pos_accum         = 0.0f;
+                            current_state          = STUTTER_PLAYING;
+                            runtime.state          = STUTTER_PLAYING;
+
+                            // Compute loop frequency for LFQ/PTQ modes
+                            runtime.loop_frequency_hz
+                                = 48000.0f
+                                  / static_cast<float>(active_buffer_length);
+
+                            // Request async pitch detection for PTQ mode
+                            if(runtime.playback_rate_mode == PRM_PTQ)
+                            {
+                                runtime.pitch_detection_pending = true;
+                            }
+
+                            // Reset semitone offset on new capture
+                            runtime.semitone_offset = 0;
                         }
                     }
                 }
@@ -228,21 +259,29 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                 }
                 else
                 {
-                    // Transition immediately
-                    current_state        = STUTTER_RECORDING;
-                    write_pos            = 0;
+                    // Transition immediately to PLAYING with locked slice
                     active_buffer_length = runtime.buffer_length;
-                    runtime.state        = STUTTER_RECORDING;
+                    loop_start_pos = (write_pos + STUTTER_BUFFER_MAX_SAMPLES
+                                      - active_buffer_length)
+                                     % STUTTER_BUFFER_MAX_SAMPLES;
+                    runtime.loop_start_pos = loop_start_pos;
+                    read_pos_accum         = 0.0f;
+                    current_state          = STUTTER_PLAYING;
+                    runtime.state          = STUTTER_PLAYING;
+
+                    // Compute loop frequency for LFQ/PTQ modes
+                    runtime.loop_frequency_hz
+                        = 48000.0f / static_cast<float>(active_buffer_length);
+
+                    // Request async pitch detection for PTQ mode
+                    if(runtime.playback_rate_mode == PRM_PTQ)
+                    {
+                        runtime.pitch_detection_pending = true;
+                    }
+
+                    // Reset semitone offset on new capture
+                    runtime.semitone_offset = 0;
                 }
-            }
-        }
-        else if(current_state == STUTTER_RECORDING)
-        {
-            if(!trigger)
-            {
-                // Aborted before recording completed
-                current_state = STUTTER_IDLE;
-                runtime.state = STUTTER_IDLE;
             }
         }
         else if(current_state == STUTTER_PLAYING)
@@ -255,62 +294,24 @@ void AudioCallback(AudioHandle::InputBuffer  in,
             }
         }
 
-        // Process current state
+        // Process current state output
         if(current_state == STUTTER_IDLE)
         {
             out_l = in_l;
             out_r = in_r;
         }
-        else if(current_state == STUTTER_RECORDING)
-        {
-            // Record current input into buffer
-            if(write_pos < STUTTER_BUFFER_MAX_SAMPLES)
-            {
-                stutter_buf_l[write_pos] = in_l;
-                stutter_buf_r[write_pos] = in_r;
-            }
-            write_pos++;
-
-            // If recording buffer is full, transition to PLAYING
-            if(write_pos >= active_buffer_length)
-            {
-                current_state  = STUTTER_PLAYING;
-                runtime.state  = STUTTER_PLAYING;
-                read_pos_accum = 0.0f;
-
-                // Compute loop frequency for LFQ/PTQ modes
-                runtime.loop_frequency_hz
-                    = 48000.0f / static_cast<float>(active_buffer_length);
-
-                // Request async pitch detection for PTQ mode
-                if(runtime.playback_rate_mode == PRM_PTQ)
-                {
-                    runtime.pitch_detection_pending = true;
-                }
-
-                // Reset semitone offset on new capture
-                runtime.semitone_offset = 0;
-            }
-
-            // Output dry signal during recording phase
-            out_l = in_l;
-            out_r = in_r;
-        }
         else if(current_state == STUTTER_PLAYING)
         {
-            // Fixed-point interpolation
-            uint32_t idx  = static_cast<uint32_t>(read_pos_accum);
-            float    frac = read_pos_accum - idx;
-            uint32_t idx1 = idx + 1;
+            // Dynamically update active_buffer_length if subdiv or tempo changes while playing
+            active_buffer_length = runtime.buffer_length;
 
-            if(idx >= active_buffer_length)
-            {
-                idx = 0;
-            }
-            if(idx1 >= active_buffer_length)
-            {
-                idx1 = 0;
-            }
+            // Interpolated playback from circular buffer relative to loop_start_pos
+            uint32_t sample_offset = static_cast<uint32_t>(read_pos_accum);
+            float    frac          = read_pos_accum - sample_offset;
+
+            uint32_t idx
+                = (loop_start_pos + sample_offset) % STUTTER_BUFFER_MAX_SAMPLES;
+            uint32_t idx1 = (idx + 1) % STUTTER_BUFFER_MAX_SAMPLES;
 
             float play_l = stutter_buf_l[idx]
                            + frac * (stutter_buf_l[idx1] - stutter_buf_l[idx]);
@@ -548,6 +549,7 @@ int main(void)
     runtime.target_rate             = RATE_INIT;
     runtime.wet                     = 0.5f;
     runtime.buffer_length           = static_cast<uint32_t>(SAMPLE_RATE);
+    runtime.loop_start_pos          = 0;
     runtime.trigger_active          = false;
     runtime.bpm                     = BPM_DEFAULT;
     runtime.has_clock               = false;
@@ -569,7 +571,8 @@ int main(void)
     hw.adc.Start();
 
     // Start Audio
-    hw.SetAudioBlockSize(AUDIO_BLOCK_SIZE); // number of samples handled per callback
+    hw.SetAudioBlockSize(
+        AUDIO_BLOCK_SIZE); // number of samples handled per callback
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
     hw.StartAudio(AudioCallback);
 
@@ -687,7 +690,8 @@ int main(void)
                     {
                         uint32_t elapsed_us = now_us - last_clock_us;
                         // Outlier filter: accept only between BPM_FILTER_MIN and BPM_FILTER_MAX
-                        if(elapsed_us >= MIDI_CLOCK_MIN_US && elapsed_us <= MIDI_CLOCK_MAX_US)
+                        if(elapsed_us >= MIDI_CLOCK_MIN_US
+                           && elapsed_us <= MIDI_CLOCK_MAX_US)
                         {
                             float raw_bpm = MIDI_CLOCK_DIVISOR / elapsed_us;
                             if(first_clock)
@@ -697,11 +701,12 @@ int main(void)
                             }
                             else
                             {
-                                bpm_smoothed
-                                    += BPM_SMOOTHING_COEFF * (raw_bpm - bpm_smoothed);
+                                bpm_smoothed += BPM_SMOOTHING_COEFF
+                                                * (raw_bpm - bpm_smoothed);
                             }
                             // Clamp smoothed BPM to guard against out-of-range rates
-                            bpm_smoothed = fclamp(bpm_smoothed, BPM_MIN, BPM_MAX);
+                            bpm_smoothed
+                                = fclamp(bpm_smoothed, BPM_MIN, BPM_MAX);
                             runtime.has_clock  = true;
                             last_clock_recv_ms = now_ms;
                         }
@@ -831,7 +836,8 @@ int main(void)
                         menu_ctx.dirty             = true;
                         break;
                     case 29: // Manual BPM (Tempo)
-                        runtime.bpm = BPM_MIN + (val / 127.0f) * (BPM_MAX - BPM_MIN);
+                        runtime.bpm
+                            = BPM_MIN + (val / 127.0f) * (BPM_MAX - BPM_MIN);
                         break;
                     case 30: // Clear Loop / Reset
                         if(val >= 64)
@@ -993,7 +999,7 @@ int main(void)
         if(runtime.pitch_detection_pending)
         {
             runtime.pitch_detection_pending = false;
-            RunPitchDetection(runtime.buffer_length);
+            RunPitchDetection(runtime.loop_start_pos, runtime.buffer_length);
 
             // If PTQ and pitch was detected, recompute target rate at current
             // semitone offset now that we have a valid pitch reference
