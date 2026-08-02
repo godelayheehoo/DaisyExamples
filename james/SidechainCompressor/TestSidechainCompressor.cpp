@@ -7,7 +7,10 @@
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-// #define DEBUG_LOG 1
+#define DEBUG_LOG 1
+
+// Uncomment to disable pots/switches and use fixed values for SC input testing
+#define DISABLE_POTS 1
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardcoded parameter values — swap these for pot readings once wired up.
@@ -280,10 +283,46 @@ int main(void)
         // =====================================================================
 
         // 0. Read footswitch (active-LOW: closed = grounded = engaged)
+#ifdef DISABLE_POTS
+        effect_engaged = true; // Force engaged for SC testing
+#else
         effect_engaged = !dsy_gpio_read(&footswitch);
+#endif
         dsy_gpio_write(&led_footswitch, effect_engaged ? 1 : 0);
 
-        // 1. Read Filter Controls
+#ifdef DISABLE_POTS
+        // ── Fixed values for sidechain input testing (kick drum) ─────────
+        // Filter: LPF at 100 Hz to isolate kick fundamental
+        sc_filter.SetFreq(100.0f);
+        current_filter_mode = FilterMode::kLPF;
+
+        // Compressor: sensitive, fast attack, moderate release
+        current_threshold = -30.0f;
+        comp.SetThreshold(current_threshold);
+        comp.SetRatio(8.0f);
+        comp.SetAttack(0.5f);      // 0.5 ms — catch the transient
+        comp.SetRelease(150.0f);   // 150 ms — breathe with the kick
+        comp.SetMix(1.0f);         // 100% wet
+        comp.SetSaturation(0.0f);  // clean — no drive
+        comp.SetStereoWidth(1.0f); // normal stereo
+        comp.SetMakeupGain(0.0f);  // unity output
+
+        current_sat_mode = SidechainCompressor::SatMode::kSoft;
+        comp.SetSatMode(current_sat_mode);
+
+        // Provide values for debug logging below
+        float cutoff_hz  = 100.0f;
+        float ratio      = 8.0f;
+        float attack_ms  = 0.5f;
+        float release_ms = 150.0f;
+        float mix_val    = 1.0f;
+        float drive_val  = 0.0f;
+        float width_val  = 1.0f;
+        float makeup_db  = 0.0f;
+        float unused_val = 0.0f;
+        bool  s1         = true;
+        bool  s2         = false;
+#else
         // NOTE: all raw ADC readings are inverted (1.0f - val) to compensate
         // for reversed GND/3.3V wiring on the potentiometers.
         float cutoff_raw = 1.0f - hw.adc.GetFloat(kFilterCutoffPot);
@@ -360,6 +399,7 @@ int main(void)
                 kFold; // Center position (Both High)
 
         comp.SetSatMode(current_sat_mode);
+#endif // DISABLE_POTS
 
 #ifdef DEBUG_LOG
         float pre_db
