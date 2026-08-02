@@ -305,9 +305,9 @@
 <body>
 
 <header>
-  <div class="label">Beta Build · Handle With Curiosity</div>
+  <div class="label">Beta Build</div>
   <h1>Stereo Sidechain<br>Compressor</h1>
-  <div class="sub">Beta tester manual — please read before plugging in</div>
+  <div class="sub">A rundown of what everything does — worth a skim before you dive in</div>
 </header>
 
 <div class="toc">
@@ -321,25 +321,26 @@
   <a href="#sidechain">How the sidechain actually works</a>
   <a href="#ducker">Ducker mode vs. Soft / Wavefold</a>
   <a href="#firmware">Firmware updates (remote)</a>
-  <a href="#feedback">What I want feedback on</a>
+  <a href="#feedback">Ideas for things to look at</a>
   <a href="#troubleshooting">Troubleshooting</a>
 </div>
 
 <!-- WHAT THIS IS -->
 <h2 id="what">What this thing does</h2>
-<p>This is a stereo compressor with a dedicated sidechain input. Plug your stereo mix (or a synth, or a bus) into the main in, plug a kick drum (or any other trigger signal) into the sidechain input, and the unit will duck/compress the stereo signal in time with whatever's hitting the sidechain in. Classic "pumping" effect, but with a lot of control over how musical or aggressive it sounds.</p>
-<p>It's built around an Electrosmith Daisy Seed — basically a small embedded computer doing all the audio processing in real time. Everything except the sidechain input's analog conditioning stage happens in software, which means bugs are fixable with a firmware update rather than a trip back to my bench (see the firmware section below).</p>
+<p>It's a stereo compressor with a dedicated sidechain input. Plug your stereo mix (or a synth, or a bus) into the main in, plug a kick drum (or any other trigger signal) into the sidechain input, and it'll duck/compress the stereo signal in time with whatever's hitting the sidechain in. Classic "pumping" effect, but with a lot of control over how musical or aggressive it sounds.</p>
+<p>Under the hood it's an Electrosmith Daisy Seed — a little embedded computer doing all the audio processing in real time. Almost everything happens in software, which means if something's off I can usually just fix it and send you a firmware update rather than needing the unit back (see the firmware section below).</p>
 <div class="callout ask">
-  <span class="tag">This is a beta unit</span>
-  It's fully functional but still being refined — component choices, noise floor, and firmware behavior may all still change before anything resembling a final version exists. Treat it like a working prototype, not a finished product. I'd rather you break it and tell me than baby it and tell me nothing.
+  <span class="tag">Still a beta</span>
+  It works, but it's still evolving — components, noise floor, firmware, all of it might change before this is "done." Poke at it, push it past where you'd normally stop, and tell me what happens. I'd much rather hear "this broke" than have you go easy on it.
 </div>
 
 <!-- POWER -->
 <h2 id="power">Powering it up</h2>
 <ul>
-  <li><b>Normal use:</b> power it entirely from the 9V barrel jack on the back. That's it — no USB required for day-to-day use. It'll boot straight into the effect.</li>
-  <li><b>USB-C port:</b> only needed if I send you a firmware update to install. You don't need it plugged in otherwise, and you don't need it plugged in <i>alongside</i> the 9V supply for normal playing.</li>
-  <li>If it doesn't power on when you plug in the 9V supply, don't force anything — there's reverse-polarity protection in there, so wrong polarity just means it stays off rather than damage. Try the opposite polarity supply if you have one, otherwise flag it to me.</li>
+  <li><b>Normal use:</b> just the 9V barrel jack on the back. That's it — no USB needed day to day. Plug it in and it boots straight into the effect.</li>
+  <li><b>Polarity:</b> center-negative — it's also labeled on the box, so just match that if you're ever using a different supply.</li>
+  <li><b>USB-C port:</b> only needed if I send you a firmware update. Don't need it plugged in otherwise, and don't need it plugged in alongside the 9V for normal playing.</li>
+  <li>If it doesn't power on, double check the polarity above before anything else — there's reverse-polarity protection in there too, so worst case it just stays off rather than anything getting damaged.</li>
 </ul>
 
 <!-- CONNECTIONS -->
@@ -351,6 +352,10 @@
   <li><b>9V barrel jack:</b> main power.</li>
   <li><b>USB-C:</b> firmware updates only.</li>
 </ul>
+<div class="callout">
+  <span class="tag">Mono in/out</span>
+  If you run mono in and mono out instead of stereo, it should still work — a mono plug in a stereo (TRS) jack should just feed the left channel, so you'd only hear/process the left side. Width is the one knob I'm genuinely not sure about in that situation — it's designed to spread a stereo signal, so with only one channel actually carrying audio it might do nothing, or it might do something a little weird. Curious what you actually hear if you try it.
+</div>
 
 <!-- CONTROLS -->
 <h2 id="controls">Knobs &amp; what they do</h2>
@@ -394,6 +399,9 @@
 <h3>Footswitch — bypass</h3>
 <p>Latching footswitch. Down/engaged = effect active. Up/disengaged = clean pass-through, unprocessed signal. The red LED (below) tracks this.</p>
 
+<h3>Unused pot &amp; button</h3>
+<p>There's one spare knob and one spare button on there that aren't doing anything yet — I just wired them up in case a good idea comes along. If you find yourself wanting a control that doesn't exist, tell me, and there's a decent chance I can just map it to one of these instead of redesigning anything.</p>
+
 <!-- LEDS -->
 <h2 id="leds">The two LEDs</h2>
 <ul>
@@ -401,8 +409,8 @@
   <li><span class="led-dot led-pink"></span><b>Pink LED (sidechain activity):</b> pulses in time with whatever's hitting the sidechain input, whenever the envelope crosses your Threshold setting. Only active while the effect is engaged (not lit in bypass). This is your at-a-glance "is it triggering" indicator.</li>
 </ul>
 <div class="callout ask">
-  <span class="tag">Feedback wanted</span>
-  Both LEDs run off the 3.3V rail, so they're intentionally conservative on brightness to save power — but that means they might be too dim to read at a glance in a normal room, especially the pink one. Let me know if you find yourself squinting, especially in a bright room or under stage/DJ booth lighting.
+  <span class="tag">Worth flagging</span>
+  Both LEDs run off 3.3V so they're a bit dim by design — curious if that's actually a problem in practice or not. If you find yourself squinting to tell if the pink one's pulsing, especially in a bright room, let me know.
 </div>
 
 <!-- SIDECHAIN -->
@@ -434,15 +442,19 @@
 <p>If the unit isn't showing up in the browser as a DFU/bootloader device at all, double check you're on Chrome, on a data-capable USB-C cable (not charge-only), and that you actually got it into bootloader mode in step 3 before opening the page.</p>
 
 <!-- FEEDBACK -->
-<h2 id="feedback">What I want feedback on</h2>
+<h2 id="feedback">Ideas for things to look at</h2>
 <ul>
   <li>Whether the knob ranges (especially Attack/Release/Ratio) feel musically useful across their full sweep, or if there's dead zone at either end.</li>
-  <li>LED visibility — see callout above.</li>
+  <li>LED visibility — see the note above.</li>
   <li>Any noise, hum, or whine — and under what conditions (which power source, sidechain connected or not, which character mode).</li>
   <li>How the three character modes (S/W/D) feel relative to each other — too subtle, too different, anything feel broken or unexpectedly harsh?</li>
   <li>Whether the sidechain filter (L/B/H + Cutoff) is intuitive to dial in with a real kick drum, or fiddly.</li>
-  <li>Anything that seems to just not work as described here — that's as useful to know as anything else.</li>
+  <li>Anything that seems to just not work as described here.</li>
 </ul>
+<div class="callout ask">
+  <span class="tag">And honestly — anything else</span>
+  Don't feel limited to the list above. If something feels off, or missing, or you have an idea for a mode/control/behavior you'd want, I want to hear it. This thing's still soft enough in its design that real suggestions can actually go somewhere.
+</div>
 
 <!-- TROUBLESHOOTING -->
 <h2 id="troubleshooting">Troubleshooting</h2>
@@ -455,7 +467,7 @@
 </ul>
 
 <footer>
-  Stereo Sidechain Compressor · Beta Tester Manual · Daisy Seed build · Questions go straight to James
+  Stereo Sidechain Compressor · Beta build · Daisy Seed · Text/call me with anything, seriously
 </footer>
 
 </body>
