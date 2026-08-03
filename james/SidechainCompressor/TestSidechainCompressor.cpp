@@ -51,6 +51,8 @@ SidechainCompressor comp;
 dsy_gpio            led;
 dsy_gpio            footswitch;
 dsy_gpio            led_footswitch;
+dsy_gpio            unused_button;
+dsy_gpio            unused_button_led;
 dsy_gpio            sw_sat1, sw_sat2;
 dsy_gpio            filter_sw1, filter_sw2;
 
@@ -74,6 +76,10 @@ enum AdcChannel
 
 // State variables
 static float sample_rate = 48000.0f;
+
+// Unused button LED toggle state (starts ON)
+volatile bool unused_led_on      = true;
+static bool   unused_button_prev = false;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Audio callback
@@ -264,6 +270,19 @@ int main(void)
     led_footswitch.pull = DSY_GPIO_NOPULL;
     dsy_gpio_init(&led_footswitch);
 
+    // ── Unused button init (momentary, active-LOW with pull-up) ────────────
+    unused_button.pin  = hw.GetPin(PIN_UNUSED_BUTTON);
+    unused_button.mode = DSY_GPIO_MODE_INPUT;
+    unused_button.pull = DSY_GPIO_PULLUP;
+    dsy_gpio_init(&unused_button);
+
+    // ── Unused button LED init (starts ON) ─────────────────────────────────
+    unused_button_led.pin  = hw.GetPin(PIN_UNUSED_BUTTON_LED);
+    unused_button_led.mode = DSY_GPIO_MODE_OUTPUT_PP;
+    unused_button_led.pull = DSY_GPIO_NOPULL;
+    dsy_gpio_init(&unused_button_led);
+    dsy_gpio_write(&unused_button_led, 1); // LED on at startup
+
     for(int i = 0; i < INIT_FLASH_COUNT; i++)
     {
         dsy_gpio_write(&led, 1);
@@ -289,6 +308,16 @@ int main(void)
         effect_engaged = !dsy_gpio_read(&footswitch);
 #endif
         dsy_gpio_write(&led_footswitch, effect_engaged ? 1 : 0);
+
+        // ── Unused button toggle (momentary press toggles LED) ──────────
+        bool unused_pressed = !dsy_gpio_read(&unused_button); // active-LOW
+        if(unused_pressed && !unused_button_prev)
+        {
+            unused_led_on = !unused_led_on;
+            dsy_gpio_write(&unused_button_led, unused_led_on ? 1 : 0);
+            hw.DelayMs(50); // simple debounce
+        }
+        unused_button_prev = unused_pressed;
 
 #ifdef DISABLE_POTS
         // ── Fixed values for sidechain input testing (kick drum) ─────────
