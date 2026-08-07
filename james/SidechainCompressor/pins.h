@@ -17,9 +17,10 @@ constexpr int PIN_WIDTH_POT     = 22; // A7  / D22 (board pin 29)
 constexpr int PIN_OUTPUT_POT    = 23; // A8  / D23 (board pin 30)
 // Unused Potentiometer
 constexpr int PIN_UNUSED_POT = 24; // A9  / D24 (board pin 31)
+
 // Unused Latching Button
-constexpr int PIN_UNUSED_BUTTON     = 9;  // D9 (board pin 10)
-constexpr int PIN_UNUSED_BUTTON_LED = 10; // D10 (board pin 11)
+constexpr int PIN_UNUSED_BUTTON_LED = 9;  // D9 (board pin 10)
+constexpr int PIN_UNUSED_BUTTON     = 10; // D10 (board pin 11)
 
 // Saturation Mode Toggle Switch
 constexpr int PIN_SAT_SW1 = 26; // D26 (board pin 33)
