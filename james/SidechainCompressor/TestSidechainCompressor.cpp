@@ -7,7 +7,7 @@
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-// #define DEBUG_LOG 1
+#define DEBUG_LOG 1
 
 // Uncomment to disable pots/switches and use fixed values for SC input testing
 // #define DISABLE_POTS 1
@@ -321,8 +321,8 @@ int main(void)
 
 #ifdef DISABLE_POTS
         // ── Fixed values for sidechain input testing (kick drum) ─────────
-        // Filter: LPF at 100 Hz to isolate kick fundamental
-        sc_filter.SetFreq(100.0f);
+        // Filter: fully open — LPF at 20 kHz so nothing is filtered
+        sc_filter.SetFreq(20000.0f);
         current_filter_mode = FilterMode::kLPF;
 
         // Compressor: sensitive, fast attack, moderate release
@@ -340,7 +340,7 @@ int main(void)
         comp.SetSatMode(current_sat_mode);
 
         // Provide values for debug logging below
-        float cutoff_hz  = 100.0f;
+        float cutoff_hz  = 20000.0f;
         float ratio      = 8.0f;
         float attack_ms  = 0.5f;
         float release_ms = 150.0f;
