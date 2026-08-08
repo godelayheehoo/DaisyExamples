@@ -8,7 +8,7 @@
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-#define DEBUG_LOG 1
+// #define DEBUG_LOG 1
 
 // Uncomment to disable pots/switches and use fixed values for SC input testing
 // #define DISABLE_POTS 1
