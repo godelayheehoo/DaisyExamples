@@ -3,11 +3,12 @@
 #include "SidechainCompressor.h"
 #include "constants.h"
 #include "pins.h"
+#include "ramp_control.h"
 
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-// #define DEBUG_LOG 1
+#define DEBUG_LOG 1
 
 // Uncomment to disable pots/switches and use fixed values for SC input testing
 // #define DISABLE_POTS 1
@@ -77,9 +78,46 @@ enum AdcChannel
 // State variables
 static float sample_rate = 48000.0f;
 
-// Unused button LED toggle state (starts ON)
-volatile bool unused_led_on      = true;
-static bool   unused_button_prev = false;
+// ─────────────────────────────────────────────────────────────────────────────
+// Ramp / LFO state
+// ─────────────────────────────────────────────────────────────────────────────
+
+RampState ramp_state[kNumRampableControls];
+int       last_mapped_control = -1;
+
+LearnPhase learn_phase  = LearnPhase::kIdle;
+int        learn_target = -1;
+float      learn_snapshot[kNumRampableControls];
+float      learn_ramp_pot_snapshot = 0.0f;
+float      learn_committed_high    = 0.0f;
+
+
+// Non-blocking triple-flash state
+static int      flash_remaining      = 0;
+static bool     flash_led_on         = false;
+static uint32_t flash_next_toggle_ms = 0;
+
+void TriggerTripleFlash()
+{
+    flash_remaining      = RAMP_FLASH_COUNT * 2; // on+off half-cycles
+    flash_next_toggle_ms = daisy::System::GetNow();
+}
+
+void UpdateFlash(uint32_t now_ms)
+{
+    if(flash_remaining <= 0)
+        return;
+    if(now_ms >= flash_next_toggle_ms)
+    {
+        flash_led_on = !flash_led_on;
+        dsy_gpio_write(&unused_button_led, flash_led_on ? 1 : 0);
+        flash_next_toggle_ms
+            = now_ms + (flash_led_on ? RAMP_FLASH_ON_MS : RAMP_FLASH_OFF_MS);
+        flash_remaining--;
+        if(flash_remaining == 0)
+            dsy_gpio_write(&unused_button_led, 0);
+    }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Audio callback
@@ -276,12 +314,12 @@ int main(void)
     unused_button.pull = DSY_GPIO_PULLUP;
     dsy_gpio_init(&unused_button);
 
-    // ── Unused button LED init (starts ON) ─────────────────────────────────
+    // ── Ramp button LED init (ramp LED — starts OFF) ──────────────────────
     unused_button_led.pin  = hw.GetPin(PIN_UNUSED_BUTTON_LED);
     unused_button_led.mode = DSY_GPIO_MODE_OUTPUT_PP;
     unused_button_led.pull = DSY_GPIO_NOPULL;
     dsy_gpio_init(&unused_button_led);
-    dsy_gpio_write(&unused_button_led, 1); // LED on at startup
+    dsy_gpio_write(&unused_button_led, 0); // ramp LED starts OFF
 
     for(int i = 0; i < INIT_FLASH_COUNT; i++)
     {
@@ -298,26 +336,205 @@ int main(void)
     while(true)
     {
         // =====================================================================
+        // Timing — measure dt for LFO phase accumulation
+        // =====================================================================
+        static uint32_t last_loop_ms = 0;
+        uint32_t        now_ms       = daisy::System::GetNow();
+        float           dt
+            = (last_loop_ms == 0) ? 0.0f : (now_ms - last_loop_ms) * 0.001f;
+        last_loop_ms = now_ms;
+
+        // =====================================================================
+        // Advance active LFO phases
+        // =====================================================================
+        for(int i = 0; i < kNumRampableControls; i++)
+        {
+            if(!ramp_state[i].active)
+                continue;
+            ramp_state[i].phase += ramp_state[i].rate_hz * dt;
+            if(ramp_state[i].phase >= 1.0f)
+                ramp_state[i].phase -= floorf(ramp_state[i].phase);
+        }
+
+#ifndef DISABLE_POTS
+        // =====================================================================
+        // Helper lambdas — read raw (inverted) pot value for a control index
+        // =====================================================================
+        auto GetRawPotValue = [&](int idx) -> float
+        {
+            switch(idx)
+            {
+                case kRampThreshold:
+                    return 1.0f - hw.adc.GetFloat(kThresholdPot);
+                case kRampRatio: return 1.0f - hw.adc.GetFloat(kRatioPot);
+                case kRampAttack: return 1.0f - hw.adc.GetFloat(kAttackPot);
+                case kRampRelease: return 1.0f - hw.adc.GetFloat(kReleasePot);
+                case kRampMix: return 1.0f - hw.adc.GetFloat(kMixPot);
+                case kRampDrive: return 1.0f - hw.adc.GetFloat(kDrivePot);
+                case kRampWidth: return 1.0f - hw.adc.GetFloat(kWidthPot);
+                case kRampOutput: return 1.0f - hw.adc.GetFloat(kOutputPot);
+                case kRampCutoff:
+                    return 1.0f - hw.adc.GetFloat(kFilterCutoffPot);
+                default: return 0.0f;
+            }
+        };
+
+        auto GetEffectiveRawValue = [&](int idx) -> float
+        {
+            RampState &rs = ramp_state[idx];
+            if(!rs.active)
+                return GetRawPotValue(idx);
+            float lfo = EvaluateLfo(rs.phase, rs.shape); // 0..1
+            return rs.low + lfo * (rs.high - rs.low);
+        };
+
+        // Preview LFO phase used while kSettingRate to blink the LED at the dialed rate
+        static float preview_phase = 0.0f;
+#endif // DISABLE_POTS
+
+        // =====================================================================
         // Hardware control reads
         // =====================================================================
 
-        // 0. Read footswitch (active-LOW: closed = grounded = engaged)
+        float raw_ramp_pot_value = 1.0f - hw.adc.GetFloat(kUnusedPot);
+
+        // 0. Read footswitch — edge-detect so the clear gesture can suppress bypass toggle
 #ifdef DISABLE_POTS
         effect_engaged = true; // Force engaged for SC testing
 #else
-        effect_engaged = !dsy_gpio_read(&footswitch);
+        static bool footswitch_prev_raw = false;
+        bool        footswitch_raw
+            = !dsy_gpio_read(&footswitch); // active-LOW: true = closed/engaged
+        bool footswitch_edge = footswitch_raw && !footswitch_prev_raw;
+        footswitch_prev_raw  = footswitch_raw;
+
+        bool ramp_btn_held = !dsy_gpio_read(&unused_button); // active-LOW
+
+        if(ramp_btn_held && footswitch_edge)
+        {
+            // Clear gesture: ramp button + footswitch tap clears last mapped ramp.
+            // Suppress the normal level read this frame so bypass state is unchanged.
+            if(last_mapped_control >= 0)
+            {
+                ramp_state[last_mapped_control].active = false;
+                last_mapped_control                    = -1;
+            }
+        }
+        else
+        {
+            // Normal: level-based read — the latching footswitch state IS effect_engaged
+            effect_engaged = footswitch_raw;
+        }
 #endif
         dsy_gpio_write(&led_footswitch, effect_engaged ? 1 : 0);
 
-        // ── Unused button toggle (momentary press toggles LED) ──────────
-        bool unused_pressed = !dsy_gpio_read(&unused_button); // active-LOW
-        if(unused_pressed && !unused_button_prev)
+        // =====================================================================
+        // Learn-gesture state machine
+        // =====================================================================
+#ifndef DISABLE_POTS
+        switch(learn_phase)
         {
-            unused_led_on = !unused_led_on;
-            dsy_gpio_write(&unused_button_led, unused_led_on ? 1 : 0);
-            hw.DelayMs(50); // simple debounce
+            case LearnPhase::kIdle:
+                if(ramp_btn_held)
+                {
+                    for(int i = 0; i < kNumRampableControls; i++)
+                        learn_snapshot[i] = GetRawPotValue(i);
+                    learn_ramp_pot_snapshot = raw_ramp_pot_value;
+                    learn_target            = -1;
+                    learn_phase             = LearnPhase::kWaitingForTarget;
+                }
+                break;
+
+            case LearnPhase::kWaitingForTarget:
+                if(!ramp_btn_held)
+                {
+                    // Released before finding a target — cancel
+                    learn_phase = LearnPhase::kIdle;
+                    break;
+                }
+                for(int i = 0; i < kNumRampableControls; i++)
+                {
+                    if(fabsf(GetRawPotValue(i) - learn_snapshot[i])
+                       > RAMP_MOVE_THRESHOLD)
+                    {
+                        learn_target = i;
+                        learn_phase  = LearnPhase::kSettingHigh;
+                        dsy_gpio_write(&unused_button_led, 1); // solid ON
+                        break;
+                    }
+                }
+                break;
+
+            case LearnPhase::kSettingHigh:
+                if(!ramp_btn_held)
+                {
+                    // Released before rate was set — cancel
+                    learn_phase = LearnPhase::kIdle;
+                    dsy_gpio_write(&unused_button_led, 0);
+                    break;
+                }
+                learn_committed_high = GetRawPotValue(learn_target);
+                if(fabsf(raw_ramp_pot_value - learn_ramp_pot_snapshot)
+                   > RAMP_MOVE_THRESHOLD)
+                {
+                    preview_phase = 0.0f;
+                    learn_phase   = LearnPhase::kSettingRate;
+                }
+                break;
+
+            case LearnPhase::kSettingRate:
+                if(!ramp_btn_held)
+                {
+                    // Commit the ramp
+                    RampState &rs = ramp_state[learn_target];
+                    rs.active     = true;
+                    rs.low        = learn_snapshot[learn_target];
+                    rs.high       = learn_committed_high;
+                    rs.rate_hz    = RAMP_RATE_MIN_HZ
+                                 * powf(RAMP_RATE_MAX_HZ / RAMP_RATE_MIN_HZ,
+                                        raw_ramp_pot_value);
+                    rs.phase            = 0.0f;
+                    rs.shape            = LfoShape::kTriangle;
+                    last_mapped_control = learn_target;
+
+                    learn_phase = LearnPhase::kIdle;
+                    dsy_gpio_write(&unused_button_led, 0);
+                    break;
+                }
+                {
+                    // Live preview: pulse LED at the currently-dialed rate
+                    float preview_rate
+                        = RAMP_RATE_MIN_HZ
+                          * powf(RAMP_RATE_MAX_HZ / RAMP_RATE_MIN_HZ,
+                                 raw_ramp_pot_value);
+                    preview_phase += preview_rate * dt;
+                    if(preview_phase >= 1.0f)
+                        preview_phase -= floorf(preview_phase);
+                    // Square wave: on when phase < 0.5
+                    dsy_gpio_write(&unused_button_led,
+                                   preview_phase < 0.5f ? 1 : 0);
+                }
+                break;
         }
-        unused_button_prev = unused_pressed;
+
+        // =====================================================================
+        // Triple-flash when a mapped pot is physically touched (kIdle only)
+        // =====================================================================
+        if(learn_phase == LearnPhase::kIdle)
+        {
+            static float last_seen_raw[kNumRampableControls] = {0.0f};
+            for(int i = 0; i < kNumRampableControls; i++)
+            {
+                if(!ramp_state[i].active)
+                    continue;
+                float live = GetRawPotValue(i);
+                if(fabsf(live - last_seen_raw[i]) > RAMP_MOVE_THRESHOLD)
+                    TriggerTripleFlash();
+                last_seen_raw[i] = live;
+            }
+            UpdateFlash(now_ms);
+        }
+#endif // DISABLE_POTS
 
 #ifdef DISABLE_POTS
         // ── Fixed values for sidechain input testing (kick drum) ─────────
@@ -348,13 +565,12 @@ int main(void)
         float drive_val  = 0.0f;
         float width_val  = 1.0f;
         float makeup_db  = 0.0f;
-        float unused_val = 0.0f;
         bool  s1         = true;
         bool  s2         = false;
 #else
         // NOTE: all raw ADC readings are inverted (1.0f - val) to compensate
         // for reversed GND/3.3V wiring on the potentiometers.
-        float cutoff_raw = 1.0f - hw.adc.GetFloat(kFilterCutoffPot);
+        float cutoff_raw = GetEffectiveRawValue(kRampCutoff);
         float cutoff_hz  = CUTOFF_MIN_HZ * powf(CUTOFF_MAX_SCALE, cutoff_raw);
         sc_filter.SetFreq(cutoff_hz);
 
@@ -369,12 +585,12 @@ int main(void)
             current_filter_mode = FilterMode::kBPF;
 
         // 2. Read Pots and Update Parameters
-        float thresh_val  = 1.0f - hw.adc.GetFloat(kThresholdPot);
+        float thresh_val  = GetEffectiveRawValue(kRampThreshold);
         current_threshold = THRESHOLD_MIN_DB
                             + (thresh_val * THRESHOLD_RANGE_DB); // -60 to 0 dB
         comp.SetThreshold(current_threshold);
 
-        float ratio_val = 1.0f - hw.adc.GetFloat(kRatioPot);
+        float ratio_val = GetEffectiveRawValue(kRampRatio);
         float ratio;
         // Exponential mapping: 1:1 at min → 100:1 at max (at kInfinityCutoff)
         // Past kInfinityCutoff, the ratio becomes infinite (1:inf)
@@ -389,30 +605,28 @@ int main(void)
         }
         comp.SetRatio(ratio);
 
-        float atk_val = 1.0f - hw.adc.GetFloat(kAttackPot);
+        float atk_val = GetEffectiveRawValue(kRampAttack);
         float attack_ms
             = ATTACK_MIN_MS + (atk_val * ATTACK_RANGE_MS); // 0.2ms to 150ms
         comp.SetAttack(attack_ms);
 
-        float rel_val = 1.0f - hw.adc.GetFloat(kReleasePot);
+        float rel_val = GetEffectiveRawValue(kRampRelease);
         float release_ms
             = RELEASE_MIN_MS + (rel_val * RELEASE_RANGE_MS); // 0.2ms to 500ms
         comp.SetRelease(release_ms);
 
-        float mix_val = 1.0f - hw.adc.GetFloat(kMixPot);
+        float mix_val = GetEffectiveRawValue(kRampMix);
         comp.SetMix(mix_val); // 0 to 1
 
-        float drive_val = 1.0f - hw.adc.GetFloat(kDrivePot);
+        float drive_val = GetEffectiveRawValue(kRampDrive);
         comp.SetSaturation(drive_val); // 0 to 1
 
-        float width_val = 1.0f - hw.adc.GetFloat(kWidthPot);
+        float width_val = GetEffectiveRawValue(kRampWidth);
         comp.SetStereoWidth(width_val * STEREO_WIDTH_MAX); // 0 to 2.0 (200%)
 
-        float output_val = 1.0f - hw.adc.GetFloat(kOutputPot);
+        float output_val = GetEffectiveRawValue(kRampOutput);
         float makeup_db  = output_val * MAKEUP_GAIN_MAX_DB; // 0 to 24 dB makeup
         comp.SetMakeupGain(makeup_db);
-
-        float unused_val = 1.0f - hw.adc.GetFloat(kUnusedPot);
 
         // 3. Read Switch and Update Saturation Mode
         // Logic for 3-pin On-Off-On toggle (Common to GND):
@@ -440,12 +654,12 @@ int main(void)
         debug_sc_pre_peak  = 0.0f;
         debug_sc_post_peak = 0.0f;
 
-        const char* filt_str = (current_filter_mode == FilterMode::kLPF) ? "LPF"
+        const char *filt_str = (current_filter_mode == FilterMode::kLPF) ? "LPF"
                                : (current_filter_mode == FilterMode::kHPF)
                                    ? "HPF"
                                    : "BPF";
 
-        const char* sat_str
+        const char *sat_str
             = (current_sat_mode == SidechainCompressor::SatMode::kSoft) ? "Soft"
               : (current_sat_mode == SidechainCompressor::SatMode::kDucker)
                   ? "Ducker"
@@ -468,7 +682,7 @@ int main(void)
 
         hw.PrintLine("T:" FLT_FMT3 " R:%s A:" FLT_FMT3 " Rel:" FLT_FMT3
                      " M:" FLT_FMT3 " D:" FLT_FMT3 " W:" FLT_FMT3 " O:" FLT_FMT3
-                     " U:" FLT_FMT3,
+                     " Rate:" FLT_FMT3,
                      FLT_VAR3(current_threshold),
                      ratio_buf,
                      FLT_VAR3(attack_ms),
@@ -477,18 +691,17 @@ int main(void)
                      FLT_VAR3(drive_val),
                      FLT_VAR3(width_val),
                      FLT_VAR3(makeup_db),
-                     FLT_VAR3(unused_val));
+                     FLT_VAR3(raw_ramp_pot_value));
         hw.PrintLine("Pre:" FLT_FMT3 " Post:" FLT_FMT3 " C:" FLT_FMT3
-                     " F:%s S1:%d S2:%d M:%s Byp:%s UB:%s",
+                     " F:%s M:%s Byp:%s RampBtn:%d UB:%s",
                      FLT_VAR3(pre_db),
                      FLT_VAR3(post_db),
                      FLT_VAR3(cutoff_hz),
                      filt_str,
-                     s1 ? 1 : 0,
-                     s2 ? 1 : 0,
                      sat_str,
                      effect_engaged ? "OFF" : "ON",
-                     unused_led_on ? "ON" : "OFF");
+                     !dsy_gpio_read(&unused_button) ? 1 : 0,
+                     last_mapped_control >= 0 ? "RAMPED" : "IDLE");
         hw.DelayMs(250);
 #endif
     }

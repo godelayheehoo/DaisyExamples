@@ -43,4 +43,12 @@ constexpr int INIT_FLASH_DELAY_MS = 100;
 
 constexpr std::size_t AUDIO_BLOCK_SIZE = 4;
 
+// Ramp / LFO mapping
+constexpr float RAMP_RATE_MIN_HZ    = 0.02f; // ~50s period
+constexpr float RAMP_RATE_MAX_HZ    = 8.0f;  // fast tremolo
+constexpr float RAMP_MOVE_THRESHOLD = 0.03f; // 3% pot travel counts as "moved"
+constexpr int   RAMP_FLASH_COUNT    = 3;     // triple-flash when touching a mapped pot
+constexpr int   RAMP_FLASH_ON_MS    = 60;
+constexpr int   RAMP_FLASH_OFF_MS   = 60;
+
 #endif // CONSTANTS_H

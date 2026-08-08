@@ -306,6 +306,9 @@
     <tr><td>Footswitch</td><td>D13</td><td>On / Off</td><td>Latching bypass switch. Engaged = effect active, disengaged = clean pass-through.</td></tr>
     <tr><td>Footswitch LED</td><td>D14</td><td>On / Off</td><td>Indicates effect status. Solid on when engaged, off when bypassed.</td></tr>
     <tr><td>Bootloader Entry</td><td>D8</td><td>Logic Low</td><td>Hold at boot to enter bootloader mode</td></tr>
+    <tr><td>Ramp Rate Pot</td><td>A9 / D24</td><td>0.02–8 Hz (exp)</td><td>LFO rate for the ramp / LFO auto-mapping system. Wired same as all other pots (3V3_A / wiper / GND).</td></tr>
+    <tr><td>Ramp Button</td><td>D10</td><td>Momentary, active-LOW</td><td>Triggers the LFO learn gesture. One leg to D10, other leg to GND. Internal pull-up enabled in firmware.</td></tr>
+    <tr><td>Ramp LED</td><td>D9</td><td>Output</td><td>Learn-mode and pot-override indicator. See wiring below. Starts OFF at boot.</td></tr>
   </tbody>
 </table>
 
@@ -389,6 +392,21 @@
   <li><span class="pin">D14</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
   <li>LED cathode (short leg) → GND</li>
   <li>Solid on when effect is engaged, off when bypassed.</li>
+</ul>
+
+<h3>Ramp Button</h3>
+<p>Momentary push button used for the LFO learn gesture and the clear gesture (Ramp Button + Footswitch tap).</p>
+<ul>
+  <li>One leg → <span class="pin">D10</span></li>
+  <li>Other leg → GND</li>
+  <li>Configure D10 with internal pull-up in firmware (active-LOW: pressed = grounded)</li>
+</ul>
+
+<h3>Ramp LED</h3>
+<p>Indicator for the LFO learn-gesture phases and pot-override triple-flash. Starts OFF at boot (unlike earlier builds where this LED was initialized on).</p>
+<ul>
+  <li><span class="pin">D9</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
+  <li>LED cathode (short leg) → GND</li>
 </ul>
 
 <h3>Sidechain activity LED</h3>
