@@ -608,11 +608,11 @@ int main(void)
         button_bak.Debounce();
         button_con.Debounce();
 
-        menu_enc_accum += menu_encoder.Increment();
-        rate_enc_accum += rate_encoder.Increment();
+        menu_enc_accum -= menu_encoder.Increment();
+        rate_enc_accum -= rate_encoder.Increment();
 
         // Handle rate encoder rotation based on playback rate mode
-        int32_t rate_inc = rate_encoder.Increment();
+        int32_t rate_inc = -rate_encoder.Increment();
         if(rate_inc != 0)
         {
             uint8_t mode = runtime.playback_rate_mode;
@@ -914,8 +914,8 @@ int main(void)
             runtime.bpm = BPM_DEFAULT;
         }
 
-        // Get pot float value (0.0 to 1.0), inverted so CW increases value
-        float wet_dry_val = 1.0f - hw.adc.GetFloat(ADC_WET_DRY_POT);
+        // Get pot float value (0.0 to 1.0)
+        float wet_dry_val = hw.adc.GetFloat(ADC_WET_DRY_POT);
         int   pot_whole   = static_cast<int>(wet_dry_val);
         int   pot_frac = static_cast<int>((wet_dry_val - pot_whole) * 100.0f);
         if(pot_frac < 0)
@@ -964,14 +964,18 @@ int main(void)
         MenuTick(&menu_ctx, &config, elapsed_ms);
 
         // Dispatch Menu Encoder rotation events
-        int32_t menu_inc = menu_encoder.Increment();
+        int32_t menu_inc = -menu_encoder.Increment();
         if(menu_inc != 0)
         {
             MenuHandleRotate(&menu_ctx, &config, menu_inc);
         }
 
         // Dispatch Menu Encoder press events
-        if(menu_encoder.FallingEdge())
+        // Require a minimum hold of 20ms to filter bounce that slips past the
+        // libDaisy 8ms hardware debounce window.
+        static const float MENU_ENC_MIN_PRESS_MS = 20.0f;
+        if(menu_encoder.FallingEdge()
+           && menu_encoder.TimeHeldMs() >= MENU_ENC_MIN_PRESS_MS)
         {
             MenuHandleShortPress(&menu_ctx, &config);
         }

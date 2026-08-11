@@ -171,8 +171,8 @@ static void RenderSettingsList(StutterDisplay&    display,
         if(item_idx >= MENU_ITEM_COUNT)
             break;
 
-        int  y           = 10 + i * 10;
-        bool cursor_here = (ctx->cursor == item_idx);
+        int  y              = 10 + i * 10;
+        bool cursor_here    = (ctx->cursor == item_idx);
         bool value_inverted = is_editing && cursor_here;
 
         switch(item_idx)
@@ -202,20 +202,21 @@ static void RenderSettingsList(StutterDisplay&    display,
                               value_inverted);
                 break;
             case MENU_ITEM_MIDI_CHANNEL:
-                {
-                    char val_buf[8];
-                    if(cfg->midi_channel == 0)
-                        snprintf(val_buf, sizeof(val_buf), "  OFF");
-                    else
-                        snprintf(val_buf, sizeof(val_buf), "   %2d", cfg->midi_channel);
-                    RenderItemRow(display,
-                                  y,
-                                  cursor_here,
-                                  "MIDI CH   ",
-                                  val_buf,
-                                  value_inverted);
-                }
-                break;
+            {
+                char val_buf[8];
+                if(cfg->midi_channel == 0)
+                    snprintf(val_buf, sizeof(val_buf), "  OFF");
+                else
+                    snprintf(
+                        val_buf, sizeof(val_buf), "   %2d", cfg->midi_channel);
+                RenderItemRow(display,
+                              y,
+                              cursor_here,
+                              "MIDI CH   ",
+                              val_buf,
+                              value_inverted);
+            }
+            break;
             case MENU_ITEM_DEBUG:
                 RenderItemRow(display,
                               y,
