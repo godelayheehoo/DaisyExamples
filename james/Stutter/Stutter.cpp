@@ -609,10 +609,11 @@ int main(void)
         button_con.Debounce();
 
         menu_enc_accum -= menu_encoder.Increment();
-        rate_enc_accum -= rate_encoder.Increment();
+        int32_t rate_raw_inc = rate_encoder.Increment();
+        rate_enc_accum -= rate_raw_inc;
 
         // Handle rate encoder rotation based on playback rate mode
-        int32_t rate_inc = -rate_encoder.Increment();
+        int32_t rate_inc = -rate_raw_inc;
         if(rate_inc != 0)
         {
             uint8_t mode = runtime.playback_rate_mode;
