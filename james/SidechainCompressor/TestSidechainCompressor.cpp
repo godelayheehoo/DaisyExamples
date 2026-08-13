@@ -54,6 +54,7 @@ dsy_gpio            footswitch;
 dsy_gpio            led_footswitch;
 dsy_gpio            unused_button;
 dsy_gpio            unused_button_led;
+dsy_gpio            clear_sw;
 dsy_gpio            sw_sat1, sw_sat2;
 dsy_gpio            filter_sw1, filter_sw2;
 
@@ -83,7 +84,6 @@ static float sample_rate = 48000.0f;
 // ─────────────────────────────────────────────────────────────────────────────
 
 RampState ramp_state[kNumRampableControls];
-int       last_mapped_control = -1;
 
 LearnPhase learn_phase  = LearnPhase::kIdle;
 int        learn_target = -1;
@@ -200,14 +200,12 @@ int main(void)
 
     // ── Bootloader Entry ─────────────────────────────────────────────────────
     // If D8 (Pin 9) is held LOW (button to GND) during startup, jump to bootloader.
-    dsy_gpio boot_sw;
-    boot_sw.pin  = hw.GetPin(PIN_BOOTLOADER_SW);
-    boot_sw.mode = DSY_GPIO_MODE_INPUT;
-    boot_sw.pull = DSY_GPIO_PULLUP;
-    dsy_gpio_init(&boot_sw);
+    clear_sw.pin  = hw.GetPin(PIN_CLEAR_SW);
+    clear_sw.mode = DSY_GPIO_MODE_INPUT;
+    clear_sw.pull = DSY_GPIO_PULLUP;
+    dsy_gpio_init(&clear_sw);
     hw.DelayMs(STARTUP_DELAY_MS);
-    //temp: remove
-    if(!dsy_gpio_read(&boot_sw))
+    if(!dsy_gpio_read(&clear_sw))
     {
         System::Delay(BOOTLOADER_RESET_DELAY_MS);
         daisy::System::ResetToBootloader();
@@ -398,33 +396,25 @@ int main(void)
 
         float raw_ramp_pot_value = 1.0f - hw.adc.GetFloat(kUnusedPot);
 
-        // 0. Read footswitch — edge-detect so the clear gesture can suppress bypass toggle
+        // 0. Read footswitch (latching) and clear switch
 #ifdef DISABLE_POTS
         effect_engaged = true; // Force engaged for SC testing
 #else
-        static bool footswitch_prev_raw = false;
-        bool        footswitch_raw
+        bool footswitch_raw
             = !dsy_gpio_read(&footswitch); // active-LOW: true = closed/engaged
-        bool footswitch_edge = footswitch_raw && !footswitch_prev_raw;
-        footswitch_prev_raw  = footswitch_raw;
+        effect_engaged = footswitch_raw;
 
         bool ramp_btn_held = !dsy_gpio_read(&unused_button); // active-LOW
 
-        if(ramp_btn_held && footswitch_edge)
+        // PIN_CLEAR_SW: press clears all active ramp states
+        static bool clear_sw_prev = false;
+        bool        clear_sw_raw  = !dsy_gpio_read(&clear_sw); // active-LOW
+        if(clear_sw_raw && !clear_sw_prev)
         {
-            // Clear gesture: ramp button + footswitch tap clears last mapped ramp.
-            // Suppress the normal level read this frame so bypass state is unchanged.
-            if(last_mapped_control >= 0)
-            {
-                ramp_state[last_mapped_control].active = false;
-                last_mapped_control                    = -1;
-            }
+            for(int i = 0; i < kNumRampableControls; i++)
+                ramp_state[i].active = false;
         }
-        else
-        {
-            // Normal: level-based read — the latching footswitch state IS effect_engaged
-            effect_engaged = footswitch_raw;
-        }
+        clear_sw_prev = clear_sw_raw;
 #endif
         dsy_gpio_write(&led_footswitch, effect_engaged ? 1 : 0);
 
@@ -493,9 +483,8 @@ int main(void)
                     rs.rate_hz    = RAMP_RATE_MIN_HZ
                                  * powf(RAMP_RATE_MAX_HZ / RAMP_RATE_MIN_HZ,
                                         raw_ramp_pot_value);
-                    rs.phase            = 0.0f;
-                    rs.shape            = LfoShape::kTriangle;
-                    last_mapped_control = learn_target;
+                    rs.phase = 0.0f;
+                    rs.shape = LfoShape::kTriangle;
 
                     learn_phase = LearnPhase::kIdle;
                     dsy_gpio_write(&unused_button_led, 0);
@@ -693,15 +682,14 @@ int main(void)
                      FLT_VAR3(makeup_db),
                      FLT_VAR3(raw_ramp_pot_value));
         hw.PrintLine("Pre:" FLT_FMT3 " Post:" FLT_FMT3 " C:" FLT_FMT3
-                     " F:%s M:%s Byp:%s RampBtn:%d UB:%s",
+                     " F:%s M:%s Byp:%s RampBtn:%d",
                      FLT_VAR3(pre_db),
                      FLT_VAR3(post_db),
                      FLT_VAR3(cutoff_hz),
                      filt_str,
                      sat_str,
                      effect_engaged ? "OFF" : "ON",
-                     !dsy_gpio_read(&unused_button) ? 1 : 0,
-                     last_mapped_control >= 0 ? "RAMPED" : "IDLE");
+                     !dsy_gpio_read(&unused_button) ? 1 : 0);
         hw.DelayMs(250);
 #endif
     }

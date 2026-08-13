@@ -1,8 +1,8 @@
 #ifndef PINS_H
 #define PINS_H
 
-// Bootloader button pin
-constexpr int PIN_BOOTLOADER_SW = 8; // D8 (board pin 9)
+// Bootloader button pin, also will be used for clearing ramping
+constexpr int PIN_CLEAR_SW = 8; // D8 (board pin 9)
 
 // ADC Potentiometers & Inputs
 constexpr int PIN_SC_INPUT      = 25; // A10 / D25 (board pin 32)
