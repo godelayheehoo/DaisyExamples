@@ -400,8 +400,8 @@
 <h3>Footswitch — bypass</h3>
 <p>Latching footswitch. Down/engaged = effect active. Up/disengaged = clean pass-through, unprocessed signal. The red LED (below) tracks this.</p>
 
-<h3>Ramp Rate pot &amp; Ramp Button</h3>
-<p>These two controls work together as an LFO auto-mapping system — see the <a href="#ramp">Ramp section</a> below for full details. The short version: hold the Ramp Button, move a target pot to set the sweep range, then turn the Rate pot to dial in the LFO speed, then release. Any of the nine main knobs can be mapped this way.</p>
+<h3>Ramp Rate pot &amp; Ramp Button &amp; Clear Button</h3>
+<p>The Ramp Rate pot and Ramp Button work together as an LFO auto-mapping system — see the <a href="#ramp">Ramp section</a> below for full details. The short version: hold the Ramp Button, move a target pot to set the sweep range, then turn the Rate pot to dial in the LFO speed, then release. Any of the nine main knobs can be mapped this way. The small button on the back panel (Clear Button / bootloader button) clears all active ramps with a single press.</p>
 
 <!-- LEDS -->
 <h2 id="leds">The LEDs</h2>
@@ -437,13 +437,13 @@
 </div>
 
 <h3>Clearing a ramp</h3>
-<p>Hold the Ramp Button and press the Footswitch once. This clears the most recently assigned ramp. To clear multiple ramps, repeat the gesture — each time it removes the last one assigned. The footswitch doesn't toggle bypass during this gesture.</p>
+<p>Press the small button on the back panel (the Clear Button — same button used to enter bootloader mode) once. This clears <strong>all</strong> active ramps at once. The footswitch is uninvolved — it keeps doing its normal bypass thing. A power cycle also clears everything.</p>
 
 <h3>The Ramp LED: what each pattern means</h3>
 <ul>
   <li><b>Solid on:</b> target pot detected, you're in the "set high point" phase — keep holding the button and touch the Rate knob next.</li>
   <li><b>Blinking:</b> you're in the rate-setting phase — the blink rate mirrors the LFO speed you're currently dialing in. Release the button to commit at this speed.</li>
-  <li><b>Triple flash (three quick blinks, then off):</b> outside of learn mode, this fires when you physically turn a knob that's currently being driven by a ramp. It's a reminder that the pot is overridden — the LFO is still running and will continue to. To stop it you need to clear the ramp (hold Ramp Button + tap Footswitch).</li>
+  <li><b>Triple flash (three quick blinks, then off):</b> outside of learn mode, this fires when you physically turn a knob that's currently being driven by a ramp. It's a reminder that the pot is overridden — the LFO is still running and will continue to. To stop it, press the Clear Button (back panel) to wipe all ramps.</li>
   <li><b>Off:</b> everything idle, no learn gesture in progress, no active ramps being touched.</li>
 </ul>
 
@@ -456,7 +456,7 @@
 
 <!-- FIRMWARE -->
 <h2 id="firmware">Firmware updates (remote)</h2>
-<p>There's a small button on the back of the enclosure. That's the bootloader button — it puts the Daisy into a mode where it'll accept new firmware over USB instead of running the current program. You'll only need this if I send you an updated <code>.bin</code> file to fix something or add a feature.</p>
+<p>There's a small button on the back of the enclosure. That's the Clear/Bootloader button. During normal operation a quick press <strong>clears all active LFO ramps</strong>. It also doubles as the bootloader button — holding it while plugging in USB (or hitting reset) puts the Daisy into a mode where it'll accept new firmware over USB. You'll only need the bootloader function if I send you an updated <code>.bin</code> file to fix something or add a feature.</p>
 <h3>To install an update I send you:</h3>
 <ol>
   <li>Disconnect the 9V power supply. Power the unit from USB-C only for this process.</li>
