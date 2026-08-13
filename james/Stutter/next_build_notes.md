@@ -1,3 +1,3 @@
 1. Had to invert directions for Pots and encoders
 2. I'm getting the menu encoder button push triggering every time I rotate the knob. For now there's an encoder guard but it's not working well.  FUnctionally it just turns off the encoder press, which is actually fine though.  
-One of the two modes (PTQ I think) no longer behaves correctly since our last major update, which loops from a forward position instead of retrospecively.  We likely need to fix that code.
+One of the two modes (PTQ I think) no longer behaves correctly since our last major update, which loops from a forward position instead of retrospecively.  We likely need to fix that code.    
