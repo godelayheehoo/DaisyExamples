@@ -1,5 +1,8 @@
 # Ramping (LFO Auto-Mapping) — Implementation Plan
 
+> **See [Addendum: Clear Gesture Redesign](#addendum-clear-gesture-redesign) at the bottom of this document.**
+> Section 3 below describes the original clear gesture; it has been superseded by the addendum.
+
 ## Summary
 
 Repurpose the existing unused button, unused button LED, and unused pot as a
@@ -417,3 +420,66 @@ Keep unchanged: all `dsy_gpio_init()` calls for `unused_button` and
   loop iteration rather than potentially called twice (once for flash
   detection, once for the actual control read) — likely fine either way
   given ADC read cost, but worth a glance if loop timing gets tight.
+
+---
+
+## Addendum: Clear Gesture Redesign
+
+*Implemented 2026-08-13. Supersedes Section 3 above.*
+
+### What changed
+
+The original clear gesture (hold Ramp Button + tap Footswitch to remove the
+most recently mapped ramp) was replaced with a simpler, dedicated button:
+**pressing `PIN_CLEAR_SW` (D8, the bootloader button) once clears all active
+ramp states simultaneously.**
+
+Motivation:
+- The ramp-button + footswitch combo was awkward — it required edge-detecting
+  the latching footswitch and suppressing its normal bypass toggle on the same
+  press, adding complexity and a subtle interaction hazard.
+- Tracking `last_mapped_control` to support "remove most-recent" was state
+  that existed solely to serve that gesture; removing it simplifies the code.
+- `PIN_CLEAR_SW` is already initialized at boot for the bootloader-entry check
+  and can be reused in the main loop at zero hardware cost.
+
+### What was removed
+
+- `last_mapped_control` global variable and all assignments to it.
+- Footswitch edge-detection (`footswitch_prev_raw`, `footswitch_edge`).
+- The `if(ramp_btn_held && footswitch_edge)` clear-gesture branch.
+
+### What was added / changed
+
+- The local `boot_sw` variable in `main()` was replaced by the global
+  `clear_sw` (`dsy_gpio`), initialized identically. The bootloader-entry
+  check now reads `clear_sw` directly.
+- In the main `while(true)` loop, a rising-edge detect on `clear_sw` clears
+  all ramp states:
+
+```cpp
+static bool clear_sw_prev = false;
+bool        clear_sw_raw  = !dsy_gpio_read(&clear_sw); // active-LOW
+if(clear_sw_raw && !clear_sw_prev)
+{
+    for(int i = 0; i < kNumRampableControls; i++)
+        ramp_state[i].active = false;
+}
+clear_sw_prev = clear_sw_raw;
+```
+
+- The footswitch is now a clean unconditional level-read again:
+
+```cpp
+bool footswitch_raw = !dsy_gpio_read(&footswitch);
+effect_engaged = footswitch_raw;
+```
+
+- The `PIN_CLEAR_SW` comment in `pins.h` was already updated when the pin
+  was renamed; no further pin changes were needed.
+
+### Note on bootloader safety
+
+Holding `PIN_CLEAR_SW` at power-on / reset still enters the bootloader
+(checked before the main loop starts). A brief press during normal operation
+only clears ramps — it cannot accidentally trigger a bootloader reset.

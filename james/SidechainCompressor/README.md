@@ -37,9 +37,10 @@ A desktop stereo compressor with sidechain input, built around an Electrosmith D
 - **Ramp LED**: Pin **D9**. Multi-mode indicator used during the LFO learn-gesture (see Ramp section below).
 
 ### Utility
-- **Bootloader Button**: Pin **D8 (Board Pin 9)**. 
+- **Clear / Bootloader Button**: Pin **D8 (Board Pin 9)**.
   - **Wiring**: One side of a momentary button to **D8**, the other side to **GND**.
-  - **Function**: Hold this button while powering on or hitting reset to enter bootloader mode for firmware updates.
+  - **During normal operation**: A single press **clears all active ramps** instantly.
+  - **At boot / reset**: Hold this button while powering on or hitting reset to enter bootloader mode for firmware updates.
 
 ## Ramp / LFO Auto-Mapping
 
@@ -57,11 +58,11 @@ Any of the 9 main pots can be mapped to an internal triangle-wave LFO that sweep
 
 ### How to clear a ramp
 
-Hold the Ramp Button and **press the Footswitch** once. This clears the most recently mapped ramp. Repeat to clear additional ramps in reverse order of assignment.
+Press the **Clear button** (D8, the bootloader button on the back panel) once. This clears **all** active ramps simultaneously. A power cycle also clears everything.
 
 ### Touching a ramped pot
 
-If you physically move a pot that currently has an active ramp, the Ramp LED **triple-flashes** as a reminder that the pot is being overridden by the LFO. The LFO remains active — the physical pot position does not break the ramp; it must be explicitly cleared.
+If you physically move a pot that currently has an active ramp, the Ramp LED **triple-flashes** as a reminder that the pot is being overridden by the LFO. The LFO remains active — the physical pot position does not break the ramp; press the Clear button to stop it.
 
 ## Build Reference
 For complete wiring diagrams and conditioning circuit details, see [build_reference.html](./build_reference.html).
