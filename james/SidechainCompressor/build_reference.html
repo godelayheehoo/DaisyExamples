@@ -1,460 +1,635 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stereo Sidechain Compressor — Build Reference</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stereo Sidechain Compressor — Build Reference</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
 
-  :root {
-    --bg: #0f0f0f;
-    --bg2: #1a1a1a;
-    --bg3: #222;
-    --border: #2e2e2e;
-    --accent: #c8f135;
-    --accent2: #f13565;
-    --text: #e8e8e8;
-    --muted: #777;
-    --mono: 'IBM Plex Mono', monospace;
-    --sans: 'IBM Plex Sans', sans-serif;
-  }
+    :root {
+      --bg: #0f0f0f;
+      --bg2: #1a1a1a;
+      --bg3: #222;
+      --border: #2e2e2e;
+      --accent: #c8f135;
+      --accent2: #f13565;
+      --text: #e8e8e8;
+      --muted: #777;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', sans-serif;
+    }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-weight: 300;
-    line-height: 1.7;
-    padding: 48px 24px;
-    max-width: 860px;
-    margin: 0 auto;
-  }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-weight: 300;
+      line-height: 1.7;
+      padding: 48px 24px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
 
-  header {
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 32px;
-    margin-bottom: 48px;
-  }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 32px;
+      margin-bottom: 48px;
+    }
 
-  header .label {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    color: var(--accent);
-    text-transform: uppercase;
-    margin-bottom: 12px;
-  }
+    header .label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
 
-  header h1 {
-    font-family: var(--mono);
-    font-size: 32px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-    margin-bottom: 8px;
-  }
+    header h1 {
+      font-family: var(--mono);
+      font-size: 32px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 8px;
+    }
 
-  header .sub {
-    color: var(--muted);
-    font-size: 14px;
-  }
+    header .sub {
+      color: var(--muted);
+      font-size: 14px;
+    }
 
-  h2 {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin: 48px 0 20px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border);
-  }
+    h2 {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 48px 0 20px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
 
-  h3 {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text);
-    margin: 28px 0 12px;
-    padding-left: 12px;
-    border-left: 2px solid var(--accent2);
-  }
+    h3 {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin: 28px 0 12px;
+      padding-left: 12px;
+      border-left: 2px solid var(--accent2);
+    }
 
-  p {
-    font-size: 14px;
-    color: #ccc;
-    margin-bottom: 14px;
-    max-width: 680px;
-  }
+    p {
+      font-size: 14px;
+      color: #ccc;
+      margin-bottom: 14px;
+      max-width: 680px;
+    }
 
-  ul {
-    list-style: none;
-    margin: 0 0 16px;
-  }
+    ul {
+      list-style: none;
+      margin: 0 0 16px;
+    }
 
-  ul li {
-    font-size: 14px;
-    color: #ccc;
-    padding: 6px 0 6px 20px;
-    position: relative;
-    border-bottom: 1px solid var(--border);
-    max-width: 680px;
-  }
+    ul li {
+      font-size: 14px;
+      color: #ccc;
+      padding: 6px 0 6px 20px;
+      position: relative;
+      border-bottom: 1px solid var(--border);
+      max-width: 680px;
+    }
 
-  ul li:last-child { border-bottom: none; }
+    ul li:last-child {
+      border-bottom: none;
+    }
 
-  ul li::before {
-    content: '—';
-    position: absolute;
-    left: 0;
-    color: var(--muted);
-    font-family: var(--mono);
-  }
+    ul li::before {
+      content: '—';
+      position: absolute;
+      left: 0;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    margin: 16px 0 24px;
-  }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 16px 0 24px;
+    }
 
-  th {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--muted);
-    text-align: left;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg2);
-  }
+    th {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+    }
 
-  td {
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    color: #ccc;
-    vertical-align: top;
-  }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: #ccc;
+      vertical-align: top;
+    }
 
-  tr:last-child td { border-bottom: none; }
+    tr:last-child td {
+      border-bottom: none;
+    }
 
-  td:first-child {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--text);
-    white-space: nowrap;
-  }
+    td:first-child {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+      white-space: nowrap;
+    }
 
-  td:nth-child(2) {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--accent);
-    white-space: nowrap;
-  }
+    td:nth-child(2) {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      white-space: nowrap;
+    }
 
-  td:nth-child(3) {
-    color: var(--muted);
-    font-size: 12px;
-    white-space: nowrap;
-  }
+    td:nth-child(3) {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
 
-  .callout {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--accent);
-    padding: 14px 18px;
-    margin: 16px 0;
-    font-size: 13px;
-    color: #bbb;
-    max-width: 680px;
-  }
+    .callout {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #bbb;
+      max-width: 680px;
+    }
 
-  .callout.warn {
-    border-left-color: var(--accent2);
-  }
+    .callout.warn {
+      border-left-color: var(--accent2);
+    }
 
-  .component {
-    font-family: var(--mono);
-    font-size: 12px;
-    background: var(--bg3);
-    color: var(--accent);
-    padding: 1px 6px;
-    border-radius: 2px;
-  }
+    .component {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--bg3);
+      color: var(--accent);
+      padding: 1px 6px;
+      border-radius: 2px;
+    }
 
-  .pin {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--accent2);
-  }
+    .pin {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent2);
+    }
 
-  .toc {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    padding: 20px 24px;
-    margin-bottom: 48px;
-    font-size: 13px;
-  }
+    .toc {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      padding: 20px 24px;
+      margin-bottom: 48px;
+      font-size: 13px;
+    }
 
-  .toc-title {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 12px;
-  }
+    .toc-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
 
-  .toc a {
-    display: block;
-    color: #ccc;
-    text-decoration: none;
-    padding: 4px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-  }
+    .toc a {
+      display: block;
+      color: #ccc;
+      text-decoration: none;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
 
-  .toc a:last-child { border-bottom: none; }
-  .toc a:hover { color: var(--accent); }
+    .toc a:last-child {
+      border-bottom: none;
+    }
 
-  .toc a::before {
-    content: '→ ';
-    font-family: var(--mono);
-    color: var(--muted);
-  }
+    .toc a:hover {
+      color: var(--accent);
+    }
 
-  footer {
-    margin-top: 64px;
-    padding-top: 24px;
-    border-top: 1px solid var(--border);
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-  }
-</style>
+    .toc a::before {
+      content: '→ ';
+      font-family: var(--mono);
+      color: var(--muted);
+    }
+
+    footer {
+      margin-top: 64px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+  </style>
 </head>
+
 <body>
 
-<header>
-  <div class="label">Build Reference / v5</div>
-  <h1>Stereo Sidechain<br>Compressor</h1>
-  <div class="sub">Electrosmith Daisy Seed · Breadboard build · No SMD</div>
-</header>
+  <header>
+    <div class="label">Build Reference / v5</div>
+    <h1>Stereo Sidechain<br>Compressor</h1>
+    <div class="sub">Electrosmith Daisy Seed · Breadboard build · No SMD</div>
+  </header>
 
-<div class="toc">
-  <div class="toc-title">Contents</div>
-  <a href="#what">What this is</a>
-  <a href="#signal">Signal flow</a>
-  <a href="#controls">Controls</a>
-  <a href="#wiring">Complete wiring summary</a>
-  <a href="#footswitch">Footswitch bypass</a>
-  <a href="#boot">Bootloader entry button</a>
-  <a href="#notes">Notes</a>
-</div>
+  <div class="toc">
+    <div class="toc-title">Contents</div>
+    <a href="#what">What this is</a>
+    <a href="#signal">Signal flow</a>
+    <a href="#controls">Controls</a>
+    <a href="#wiring">Complete wiring summary</a>
+    <a href="#footswitch">Footswitch bypass</a>
+    <a href="#boot">Bootloader entry button</a>
+    <a href="#notes">Notes</a>
+  </div>
 
-<!-- WHAT THIS IS -->
-<h2 id="what">What this is</h2>
-<p>A desktop stereo compressor with sidechain input, built around an Electrosmith Daisy Seed DSP module. A kick drum signal plugged into the sidechain input drives the compression envelope, causing the stereo audio to duck in time with the kick — the classic pumping effect. The unit also includes selectable character modes (soft saturation, wavefolding, or full ducker mode) and a stereo width control.</p>
-<p>All signal processing happens in software on the Daisy Seed. The only analog circuitry required is a small input conditioning stage for the sidechain channel.</p>
+  <!-- WHAT THIS IS -->
+  <h2 id="what">What this is</h2>
+  <p>A desktop stereo compressor with sidechain input, built around an Electrosmith Daisy Seed DSP module. A kick drum
+    signal plugged into the sidechain input drives the compression envelope, causing the stereo audio to duck in time
+    with the kick — the classic pumping effect. The unit also includes selectable character modes (soft saturation,
+    wavefolding, or full ducker mode) and a stereo width control.</p>
+  <p>All signal processing happens in software on the Daisy Seed. The only analog circuitry required is a small input
+    conditioning stage for the sidechain channel.</p>
+  <p><b>NOTE: I have moved to a pcb-based build since this, this is kept for historical purposes. </b></p>
 
-<!-- SIGNAL FLOW -->
-<h2 id="signal">Signal flow</h2>
+  <!-- SIGNAL FLOW -->
+  <h2 id="signal">Signal flow</h2>
 
-<h3>Stereo audio path</h3>
-<p>Left and right audio inputs connect directly to the Daisy Seed's audio codec pins. The Seed processes the stereo pair — applying gain reduction driven by the sidechain envelope, then saturation, then stereo width adjustment — and outputs on the left and right audio output pins. No external components needed in this path.</p>
+  <h3>Stereo audio path</h3>
+  <p>Left and right audio inputs connect directly to the Daisy Seed's audio codec pins. The Seed processes the stereo
+    pair — applying gain reduction driven by the sidechain envelope, then saturation, then stereo width adjustment — and
+    outputs on the left and right audio output pins. No external components needed in this path.</p>
 
-<h3>Sidechain path</h3>
-<p>The sidechain input cannot connect directly to the Seed's ADC pins, which expect 0–3.3V. The signal passes through a conditioning circuit built around one half of a <span class="component">NE5532</span> dual op-amp (U1A), configured as a non-inverting amplifier with mid-rail biasing for single-supply operation. The op-amp package's supply pins (and the bias divider) run from a dedicated regulated rail rather than raw barrel-jack voltage — see Power section below.</p>
-<ul>
-  <li>A <span class="component">100nF</span> cap (C1) blocks any DC offset from the source device</li>
-  <li>Two <span class="component">100kΩ</span> resistors (R1, R2) form a divider between the regulated <span class="pin">9V_Clean</span> rail and GND, biasing the op-amp's non-inverting input (pin 3) at mid-rail — required for correct single-supply operation</li>
-  <li>A <span class="component">10kΩ</span> resistor (R3, "Rg") from pin 2 to GND and a <span class="component">100kΩ</span> resistor (R4, "Rf") from pin 1 to pin 2 set the gain to approximately 11x. <b>Under review</b> — this gain may be reduced (Rf → ~47k or ~33k) if the sidechain input clips with the op-amp running at full regulated voltage; confirm current value against the schematic before building.</li>
-  <li>A second <span class="component">100nF</span> cap (C2) on the output (pin 1) blocks the mid-rail DC bias before the signal reaches the ADC pin</li>
-  <li>Two bias resistors (~100kΩ each) at the Daisy's ADC input pin (D25) — one to <span class="pin">3.3V_A</span>, one to GND — establish a defined ~1.65V mid-rail reference at the pin itself. Without these, the AC-coupled signal has no defined center point and the ADC reading can rail to one extreme.</li>
-</ul>
-<p>In software, the Seed tracks the amplitude of this signal using an envelope follower, and uses that envelope as the control signal for the compressor on the stereo path.</p>
+  <h3>Sidechain path</h3>
+  <p>The sidechain input cannot connect directly to the Seed's ADC pins, which expect 0–3.3V. The signal passes through
+    a conditioning circuit built around one half of a <span class="component">NE5532</span> dual op-amp (U1A),
+    configured as a non-inverting amplifier with mid-rail biasing for single-supply operation. The op-amp package's
+    supply pins (and the bias divider) run from a dedicated regulated rail rather than raw barrel-jack voltage — see
+    Power section below.</p>
+  <ul>
+    <li>A <span class="component">100nF</span> cap (C1) blocks any DC offset from the source device</li>
+    <li>Two <span class="component">100kΩ</span> resistors (R1, R2) form a divider between the regulated <span
+        class="pin">9V_Clean</span> rail and GND, biasing the op-amp's non-inverting input (pin 3) at mid-rail —
+      required for correct single-supply operation</li>
+    <li>A <span class="component">10kΩ</span> resistor (R3, "Rg") from pin 2 to GND and a <span
+        class="component">100kΩ</span> resistor (R4, "Rf") from pin 1 to pin 2 set the gain to approximately 11x.
+      <b>Under review</b> — this gain may be reduced (Rf → ~47k or ~33k) if the sidechain input clips with the op-amp
+      running at full regulated voltage; confirm current value against the schematic before building.
+    </li>
+    <li>A second <span class="component">100nF</span> cap (C2) on the output (pin 1) blocks the mid-rail DC bias before
+      the signal reaches the ADC pin</li>
+    <li>Two bias resistors (~100kΩ each) at the Daisy's ADC input pin (D25) — one to <span class="pin">3.3V_A</span>,
+      one to GND — establish a defined ~1.65V mid-rail reference at the pin itself. Without these, the AC-coupled signal
+      has no defined center point and the ADC reading can rail to one extreme.</li>
+  </ul>
+  <p>In software, the Seed tracks the amplitude of this signal using an envelope follower, and uses that envelope as the
+    control signal for the compressor on the stereo path.</p>
 
-<!-- CONTROLS -->
-<h2 id="controls">Controls</h2>
-<p>Eight potentiometers and one three-position toggle switch. Each pot: pin 1 to GND, pin 3 to <span class="pin">3V3_A</span>, wiper (pin 2) to the ADC pin.</p>
+  <!-- CONTROLS -->
+  <h2 id="controls">Controls</h2>
+  <p>Eight potentiometers and one three-position toggle switch. Each pot: pin 1 to GND, pin 3 to <span
+      class="pin">3V3_A</span>, wiper (pin 2) to the ADC pin.</p>
 
-<table>
-  <thead>
-    <tr>
-      <th>Control</th>
-      <th>Daisy pin</th>
-      <th>Range</th>
-      <th>Function</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr><td>Threshold</td><td>A0 / D15</td><td>−60 to 0 dB</td><td>Level at which compression begins</td></tr>
-    <tr><td>Ratio</td><td>A1 / D16</td><td>1:1 to 100:1, then 1:inf past 90%</td><td>How aggressively gain is reduced above threshold. Past 90% pot travel, acts as 1:inf brickwall limiting.</td></tr>
-    <tr><td>Attack</td><td>A2 / D17</td><td>1ms to 300ms</td><td>How quickly compression engages after threshold is crossed</td></tr>
-    <tr><td>Release</td><td>A3 / D18</td><td>10ms to 1000ms</td><td>How quickly compression releases after signal falls below threshold</td></tr>
-    <tr><td>Mix</td><td>A4 / D19</td><td>0 to 100%</td><td>Blend between dry (uncompressed) and wet (compressed) signal</td></tr>
-    <tr><td>Drive</td><td>A5 / D20</td><td>0 to 100%</td><td>Amount of saturation applied after compression (controls Ducking Depth from 0 to -100 dB when in Ducker mode)</td></tr>
-    <tr><td>Character Switch</td><td>D26 + D27</td><td>3 Positions</td><td>Selects character mode: Soft Saturation / Ducker Mode / Wavefolding</td></tr>
-    <tr><td>Width</td><td>A7 / D22</td><td>0 to 200%</td><td>Stereo width. 100% = unchanged. Below narrows, above widens.</td></tr>
-    <tr><td>Output</td><td>A8 / D23</td><td>0 to 100%</td><td>Final output level trim</td></tr>
-    <tr><td>SC Filter Cutoff</td><td>A6 / D21</td><td>20Hz to 20kHz</td><td>Cutoff frequency of the sidechain filter</td></tr>
-    <tr><td>SC Filter Type</td><td>D11 + D12</td><td>LPF / BPF / HPF</td><td>Filter mode applied to sidechain signal. Center position = BPF.</td></tr>
-    <tr><td>Footswitch</td><td>D13</td><td>On / Off</td><td>Latching bypass switch. Engaged = effect active, disengaged = clean pass-through.</td></tr>
-    <tr><td>Footswitch LED</td><td>D14</td><td>On / Off</td><td>Indicates effect status. Solid on when engaged, off when bypassed.</td></tr>
-    <tr><td>Bootloader Entry</td><td>D8</td><td>Logic Low</td><td>Hold at boot to enter bootloader mode</td></tr>
-    <tr><td>Ramp Rate Pot</td><td>A9 / D24</td><td>0.02–8 Hz (exp)</td><td>LFO rate for the ramp / LFO auto-mapping system. Wired same as all other pots (3V3_A / wiper / GND).</td></tr>
-    <tr><td>Ramp Button</td><td>D10</td><td>Momentary, active-LOW</td><td>Triggers the LFO learn gesture. One leg to D10, other leg to GND. Internal pull-up enabled in firmware.</td></tr>
-    <tr><td>Ramp LED</td><td>D9</td><td>Output</td><td>Learn-mode and pot-override indicator. See wiring below. Starts OFF at boot.</td></tr>
-  </tbody>
-</table>
+  <table>
+    <thead>
+      <tr>
+        <th>Control</th>
+        <th>Daisy pin</th>
+        <th>Range</th>
+        <th>Function</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Threshold</td>
+        <td>A0 / D15</td>
+        <td>−60 to 0 dB</td>
+        <td>Level at which compression begins</td>
+      </tr>
+      <tr>
+        <td>Ratio</td>
+        <td>A1 / D16</td>
+        <td>1:1 to 100:1, then 1:inf past 90%</td>
+        <td>How aggressively gain is reduced above threshold. Past 90% pot travel, acts as 1:inf brickwall limiting.
+        </td>
+      </tr>
+      <tr>
+        <td>Attack</td>
+        <td>A2 / D17</td>
+        <td>1ms to 300ms</td>
+        <td>How quickly compression engages after threshold is crossed</td>
+      </tr>
+      <tr>
+        <td>Release</td>
+        <td>A3 / D18</td>
+        <td>10ms to 1000ms</td>
+        <td>How quickly compression releases after signal falls below threshold</td>
+      </tr>
+      <tr>
+        <td>Mix</td>
+        <td>A4 / D19</td>
+        <td>0 to 100%</td>
+        <td>Blend between dry (uncompressed) and wet (compressed) signal</td>
+      </tr>
+      <tr>
+        <td>Drive</td>
+        <td>A5 / D20</td>
+        <td>0 to 100%</td>
+        <td>Amount of saturation applied after compression (controls Ducking Depth from 0 to -100 dB when in Ducker
+          mode)</td>
+      </tr>
+      <tr>
+        <td>Character Switch</td>
+        <td>D26 + D27</td>
+        <td>3 Positions</td>
+        <td>Selects character mode: Soft Saturation / Ducker Mode / Wavefolding</td>
+      </tr>
+      <tr>
+        <td>Width</td>
+        <td>A7 / D22</td>
+        <td>0 to 200%</td>
+        <td>Stereo width. 100% = unchanged. Below narrows, above widens.</td>
+      </tr>
+      <tr>
+        <td>Output</td>
+        <td>A8 / D23</td>
+        <td>0 to 100%</td>
+        <td>Final output level trim</td>
+      </tr>
+      <tr>
+        <td>SC Filter Cutoff</td>
+        <td>A6 / D21</td>
+        <td>20Hz to 20kHz</td>
+        <td>Cutoff frequency of the sidechain filter</td>
+      </tr>
+      <tr>
+        <td>SC Filter Type</td>
+        <td>D11 + D12</td>
+        <td>LPF / BPF / HPF</td>
+        <td>Filter mode applied to sidechain signal. Center position = BPF.</td>
+      </tr>
+      <tr>
+        <td>Footswitch</td>
+        <td>D13</td>
+        <td>On / Off</td>
+        <td>Latching bypass switch. Engaged = effect active, disengaged = clean pass-through.</td>
+      </tr>
+      <tr>
+        <td>Footswitch LED</td>
+        <td>D14</td>
+        <td>On / Off</td>
+        <td>Indicates effect status. Solid on when engaged, off when bypassed.</td>
+      </tr>
+      <tr>
+        <td>Bootloader Entry</td>
+        <td>D8</td>
+        <td>Logic Low</td>
+        <td>Hold at boot to enter bootloader mode</td>
+      </tr>
+      <tr>
+        <td>Ramp Rate Pot</td>
+        <td>A9 / D24</td>
+        <td>0.02–8 Hz (exp)</td>
+        <td>LFO rate for the ramp / LFO auto-mapping system. Wired same as all other pots (3V3_A / wiper / GND).</td>
+      </tr>
+      <tr>
+        <td>Ramp Button</td>
+        <td>D10</td>
+        <td>Momentary, active-LOW</td>
+        <td>Triggers the LFO learn gesture. One leg to D10, other leg to GND. Internal pull-up enabled in firmware.</td>
+      </tr>
+      <tr>
+        <td>Ramp LED</td>
+        <td>D9</td>
+        <td>Output</td>
+        <td>Learn-mode and pot-override indicator. See wiring below. Starts OFF at boot.</td>
+      </tr>
+    </tbody>
+  </table>
 
-<p>The three-position toggle switch selects the processing character. Two signal legs connect to <span class="pin">D26</span> and <span class="pin">D27</span>. Configure both with internal pull-ups in firmware. The three positions select: soft clip (smooth, tape-like), ducker mode (fully ducks output when sidechain triggers), or wavefold (complex, synth-like).</p>
+  <p>The three-position toggle switch selects the processing character. Two signal legs connect to <span
+      class="pin">D26</span> and <span class="pin">D27</span>. Configure both with internal pull-ups in firmware. The
+    three positions select: soft clip (smooth, tape-like), ducker mode (fully ducks output when sidechain triggers), or
+    wavefold (complex, synth-like).</p>
 
-<!-- WIRING -->
-<h2 id="wiring">Complete wiring summary</h2>
+  <!-- WIRING -->
+  <h2 id="wiring">Complete wiring summary</h2>
 
-<h3>Audio input (stereo TRS)</h3>
-<p>One 1/4" TRS jack. Tip → <span class="pin">AUDIO IN L</span>. Ring → <span class="pin">AUDIO IN R</span>. Sleeve → GND.</p>
+  <h3>Audio input (stereo TRS)</h3>
+  <p>One 1/4" TRS jack. Tip → <span class="pin">AUDIO IN L</span>. Ring → <span class="pin">AUDIO IN R</span>. Sleeve →
+    GND.</p>
 
-<h3>Audio output (stereo TRS)</h3>
-<p>One 1/4" TRS jack. Tip → <span class="pin">AUDIO OUT L</span>. Ring → <span class="pin">AUDIO OUT R</span>. Sleeve → GND.</p>
+  <h3>Audio output (stereo TRS)</h3>
+  <p>One 1/4" TRS jack. Tip → <span class="pin">AUDIO OUT L</span>. Ring → <span class="pin">AUDIO OUT R</span>. Sleeve
+    → GND.</p>
 
-<h3>Sidechain input</h3>
-<p>One 1/4" TS jack. Full signal chain:</p>
-<ul>
-  <li>Jack tip → one leg of C1 (<span class="component">100nF</span>, DC blocking)</li>
-  <li>Other leg of C1 → <span class="pin">pin 3</span> of U1A (NE5532)</li>
-  <li><span class="pin">Pin 3</span> also connects to the junction of R1 and R2 (<span class="component">100kΩ</span> each) in series between <span class="pin">9V_Clean</span> and GND — this biases pin 3 at mid-rail</li>
-  <li><span class="pin">Pin 2</span> → Rg1 (<span class="component">10kΩ</span>) → GND (gain-setting resistor)</li>
-  <li><span class="pin">Pin 1</span> → Rf1 (<span class="component">47kΩ</span>) → <span class="pin">pin 2</span> (feedback resistor)</li>
-  <li><span class="pin">Pin 1</span> → C2 (<span class="component">100nF</span>) → <span class="pin">A10 / D25</span> on Daisy Seed (DC blocking on output)</li>
-  <li>At <span class="pin">D25</span>: R4 (<span class="component">100kΩ</span>) to <span class="pin">3.3V_A</span> and R3 (<span class="component">100kΩ</span>) to GND, to stiffen the pin with a defined mid-rail reference</li>
-  <li><span class="pin">Pin 8</span> (V+) → <span class="pin">9V_Clean</span>. <span class="pin">Pin 4</span> (V-/GND) → GND. Note: pins 8/4 are the physical supply pins for the whole NE5532 package — both op-amp halves (U1A and U1B) share them, even though schematic tools draw them on one "unit" of the symbol.</li>
-  <li>Jack sleeve → GND</li>
-</ul>
+  <h3>Sidechain input</h3>
+  <p>One 1/4" TS jack. Full signal chain:</p>
+  <ul>
+    <li>Jack tip → one leg of C1 (<span class="component">100nF</span>, DC blocking)</li>
+    <li>Other leg of C1 → <span class="pin">pin 3</span> of U1A (NE5532)</li>
+    <li><span class="pin">Pin 3</span> also connects to the junction of R1 and R2 (<span class="component">100kΩ</span>
+      each) in series between <span class="pin">9V_Clean</span> and GND — this biases pin 3 at mid-rail</li>
+    <li><span class="pin">Pin 2</span> → Rg1 (<span class="component">10kΩ</span>) → GND (gain-setting resistor)</li>
+    <li><span class="pin">Pin 1</span> → Rf1 (<span class="component">47kΩ</span>) → <span class="pin">pin 2</span>
+      (feedback resistor)</li>
+    <li><span class="pin">Pin 1</span> → C2 (<span class="component">100nF</span>) → <span class="pin">A10 / D25</span>
+      on Daisy Seed (DC blocking on output)</li>
+    <li>At <span class="pin">D25</span>: R4 (<span class="component">100kΩ</span>) to <span class="pin">3.3V_A</span>
+      and R3 (<span class="component">100kΩ</span>) to GND, to stiffen the pin with a defined mid-rail reference</li>
+    <li><span class="pin">Pin 8</span> (V+) → <span class="pin">9V_Clean</span>. <span class="pin">Pin 4</span> (V-/GND)
+      → GND. Note: pins 8/4 are the physical supply pins for the whole NE5532 package — both op-amp halves (U1A and U1B)
+      share them, even though schematic tools draw them on one "unit" of the symbol.</li>
+    <li>Jack sleeve → GND</li>
+  </ul>
 
-<div class="callout">
-  Component summary: 2× 100nF ceramic cap (C1, C2), 2× 100kΩ resistor (R1/R2, bias divider), 1× 47kΩ resistor (Rf1, feedback), 1× 10kΩ resistor (Rg1, gain), 2× 100kΩ resistor (R3/R4, D25 bias pair), 1× NE5532P DIP-8 (dual op-amp; second half, U1B, configured as a unity-gain follower — see below — no additional passives required).
-</div>
+  <div class="callout">
+    Component summary: 2× 100nF ceramic cap (C1, C2), 2× 100kΩ resistor (R1/R2, bias divider), 1× 47kΩ resistor (Rf1,
+    feedback), 1× 10kΩ resistor (Rg1, gain), 2× 100kΩ resistor (R3/R4, D25 bias pair), 1× NE5532P DIP-8 (dual op-amp;
+    second half, U1B, configured as a unity-gain follower — see below — no additional passives required).
+  </div>
 
-<h3>Unused op-amp half (U1B)</h3>
-<p>The NE5532 is a dual op-amp; only one half (U1A) is used for sidechain conditioning. Leaving the second half's inputs floating risks unpredictable current draw or oscillation, which can inject noise into the shared supply pins (8/4) used by both halves. Configure U1B as a unity-gain voltage follower referenced to the existing mid-rail bias node, using no additional components:</p>
-<ul>
-  <li><span class="pin">Pin 5</span> (IN+) → the same R1/R2 mid-rail bias node already feeding U1A's <span class="pin">pin 3</span></li>
-  <li><span class="pin">Pin 7</span> (OUT) → <span class="pin">pin 6</span> (IN−) — direct wire, closes the feedback loop as a voltage follower</li>
-  <li><span class="pin">Pin 7</span> output is otherwise left unconnected — not used anywhere else in the circuit</li>
-</ul>
-<div class="callout">
-  In KiCad: place the NE5532P symbol's second unit under the same reference designator (U1) rather than as a separate part — right-click → Edit Properties → Unit selector if it's not already assigned correctly. Confirm pin numbers 5/6/7 against the symbol's unit table before wiring, since some library symbols split units differently. Note: your library's symbol may label this second unit "U1C" rather than the more conventional "U1B" — that's just this symbol's internal unit lettering, not a different physical part; confirm it's still reference U1 (same package) before wiring.
-</div>
+  <h3>Unused op-amp half (U1B)</h3>
+  <p>The NE5532 is a dual op-amp; only one half (U1A) is used for sidechain conditioning. Leaving the second half's
+    inputs floating risks unpredictable current draw or oscillation, which can inject noise into the shared supply pins
+    (8/4) used by both halves. Configure U1B as a unity-gain voltage follower referenced to the existing mid-rail bias
+    node, using no additional components:</p>
+  <ul>
+    <li><span class="pin">Pin 5</span> (IN+) → the same R1/R2 mid-rail bias node already feeding U1A's <span
+        class="pin">pin 3</span></li>
+    <li><span class="pin">Pin 7</span> (OUT) → <span class="pin">pin 6</span> (IN−) — direct wire, closes the feedback
+      loop as a voltage follower</li>
+    <li><span class="pin">Pin 7</span> output is otherwise left unconnected — not used anywhere else in the circuit</li>
+  </ul>
+  <div class="callout">
+    In KiCad: place the NE5532P symbol's second unit under the same reference designator (U1) rather than as a separate
+    part — right-click → Edit Properties → Unit selector if it's not already assigned correctly. Confirm pin numbers
+    5/6/7 against the symbol's unit table before wiring, since some library symbols split units differently. Note: your
+    library's symbol may label this second unit "U1C" rather than the more conventional "U1B" — that's just this
+    symbol's internal unit lettering, not a different physical part; confirm it's still reference U1 (same package)
+    before wiring.
+  </div>
 
-<h3>Potentiometers (all 8, wired identically)</h3>
-<div class="callout warn">
-  Note: If your pots are moving backwards (e.g., CW decreases the value), you have likely swapped GND and 3V3_A. The mapping below reflects a "reversed" wiring fix implemented in software.
-</div>
-<ul>
-  <li>Pin 1 (left leg / fully CCW) → <span class="pin">3V3_A</span> on Daisy Seed</li>
-  <li>Pin 2 (middle / wiper) → corresponding ADC pin per table above</li>
-  <li>Pin 3 (right leg / fully CW) → GND</li>
-</ul>
+  <h3>Potentiometers (all 8, wired identically)</h3>
+  <div class="callout warn">
+    Note: If your pots are moving backwards (e.g., CW decreases the value), you have likely swapped GND and 3V3_A. The
+    mapping below reflects a "reversed" wiring fix implemented in software.
+  </div>
+  <ul>
+    <li>Pin 1 (left leg / fully CCW) → <span class="pin">3V3_A</span> on Daisy Seed</li>
+    <li>Pin 2 (middle / wiper) → corresponding ADC pin per table above</li>
+    <li>Pin 3 (right leg / fully CW) → GND</li>
+  </ul>
 
-<h3>Character switch (3-position toggle)</h3>
-<ul>
-  <li>Common/center terminal → GND</li>
-  <li>Position 1 terminal → <span class="pin">D26</span> → Soft Clip</li>
-  <li>Position 2 terminal → <span class="pin">D27</span> → Ducker Mode</li>
-  <li>Center position (neither pin grounded) → Wavefold</li>
-  <li>Configure D26 and D27 with internal pull-ups in firmware</li>
-</ul>
+  <h3>Character switch (3-position toggle)</h3>
+  <ul>
+    <li>Common/center terminal → GND</li>
+    <li>Position 1 terminal → <span class="pin">D26</span> → Soft Clip</li>
+    <li>Position 2 terminal → <span class="pin">D27</span> → Ducker Mode</li>
+    <li>Center position (neither pin grounded) → Wavefold</li>
+    <li>Configure D26 and D27 with internal pull-ups in firmware</li>
+  </ul>
 
-<h3>Sidechain filter switch</h3>
-<ul>
-  <li>Common/center terminal → GND</li>
-  <li>Position 1 terminal → <span class="pin">D11</span> → LPF</li>
-  <li>Position 2 terminal → <span class="pin">D12</span> → HPF</li>
-  <li>Center position (neither pin grounded) → BPF</li>
-</ul>
+  <h3>Sidechain filter switch</h3>
+  <ul>
+    <li>Common/center terminal → GND</li>
+    <li>Position 1 terminal → <span class="pin">D11</span> → LPF</li>
+    <li>Position 2 terminal → <span class="pin">D12</span> → HPF</li>
+    <li>Center position (neither pin grounded) → BPF</li>
+  </ul>
 
-<h3 id="footswitch">Footswitch bypass</h3>
-<p>A latching footswitch controls effect bypass. When engaged (closed), the effect is active and the footswitch LED lights solid. When disengaged (open), audio passes through unprocessed and the LED is off.</p>
-<ul>
-  <li>One lug of the latching footswitch → <span class="pin">D13</span></li>
-  <li>Other lug → GND</li>
-  <li>Configure D13 with internal pull-up in firmware (active-LOW: closed = grounded = engaged)</li>
-</ul>
+  <h3 id="footswitch">Footswitch bypass</h3>
+  <p>A latching footswitch controls effect bypass. When engaged (closed), the effect is active and the footswitch LED
+    lights solid. When disengaged (open), audio passes through unprocessed and the LED is off.</p>
+  <ul>
+    <li>One lug of the latching footswitch → <span class="pin">D13</span></li>
+    <li>Other lug → GND</li>
+    <li>Configure D13 with internal pull-up in firmware (active-LOW: closed = grounded = engaged)</li>
+  </ul>
 
-<h3>Footswitch LED</h3>
-<ul>
-  <li><span class="pin">D14</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
-  <li>LED cathode (short leg) → GND</li>
-  <li>Solid on when effect is engaged, off when bypassed.</li>
-</ul>
+  <h3>Footswitch LED</h3>
+  <ul>
+    <li><span class="pin">D14</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
+    <li>LED cathode (short leg) → GND</li>
+    <li>Solid on when effect is engaged, off when bypassed.</li>
+  </ul>
 
-<h3>Ramp Button</h3>
-<p>Momentary push button used for the LFO learn gesture and the clear gesture (Ramp Button + Footswitch tap).</p>
-<ul>
-  <li>One leg → <span class="pin">D10</span></li>
-  <li>Other leg → GND</li>
-  <li>Configure D10 with internal pull-up in firmware (active-LOW: pressed = grounded)</li>
-</ul>
+  <h3>Ramp Button</h3>
+  <p>Momentary push button used for the LFO learn gesture and the clear gesture (Ramp Button + Footswitch tap).</p>
+  <ul>
+    <li>One leg → <span class="pin">D10</span></li>
+    <li>Other leg → GND</li>
+    <li>Configure D10 with internal pull-up in firmware (active-LOW: pressed = grounded)</li>
+  </ul>
 
-<h3>Ramp LED</h3>
-<p>Indicator for the LFO learn-gesture phases and pot-override triple-flash. Starts OFF at boot (unlike earlier builds where this LED was initialized on).</p>
-<ul>
-  <li><span class="pin">D9</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
-  <li>LED cathode (short leg) → GND</li>
-</ul>
+  <h3>Ramp LED</h3>
+  <p>Indicator for the LFO learn-gesture phases and pot-override triple-flash. Starts OFF at boot (unlike earlier builds
+    where this LED was initialized on).</p>
+  <ul>
+    <li><span class="pin">D9</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
+    <li>LED cathode (short leg) → GND</li>
+  </ul>
 
-<h3>Sidechain activity LED</h3>
-<ul>
-  <li><span class="pin">D30</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
-  <li>LED cathode (short leg) → GND</li>
-  <li>LED pulses in time with kick drum when envelope follower exceeds the compression threshold.</li>
-</ul>
+  <h3>Sidechain activity LED</h3>
+  <ul>
+    <li><span class="pin">D30</span> → <span class="component">220Ω</span> resistor → LED anode (long leg)</li>
+    <li>LED cathode (short leg) → GND</li>
+    <li>LED pulses in time with kick drum when envelope follower exceeds the compression threshold.</li>
+  </ul>
 
-<h3 id="boot">Bootloader entry button</h3>
-<div class="callout">
-  <b>Wiring</b>: Connect one side of a momentary push button to <span class="pin">D8</span> (Board Pin 9) and the other side to <b>GND</b>.
-</div>
-<ul>
-  <li><b>Usage</b>: Hold the button down while powering on or pressing the Reset button on the Daisy Seed.</li>
-  <li><b>Function</b>: Triggers the <code>System::ResetToBootloader()</code> routine, allowing for firmware updates without needing to access the physical buttons on the Daisy module itself.</li>
-</ul>
+  <h3 id="boot">Bootloader entry button</h3>
+  <div class="callout">
+    <b>Wiring</b>: Connect one side of a momentary push button to <span class="pin">D8</span> (Board Pin 9) and the
+    other side to <b>GND</b>.
+  </div>
+  <ul>
+    <li><b>Usage</b>: Hold the button down while powering on or pressing the Reset button on the Daisy Seed.</li>
+    <li><b>Function</b>: Triggers the <code>System::ResetToBootloader()</code> routine, allowing for firmware updates
+      without needing to access the physical buttons on the Daisy module itself.</li>
+  </ul>
 
-<h3>Power</h3>
-<ul>
-  <li>Daisy Seed: powered via USB during development. For finished unit, use the VIN pin (accepts 4.5–17V) or regulated 5V on the 5V pin. VIN stays on the raw, unregulated barrel-jack rail — do not route it through the LDO below.</li>
-  <li>Barrel jack → <span class="component">1N5819</span> reverse-polarity protection diode (D1) → raw <span class="pin">+9V</span> node. This raw node feeds Daisy VIN directly.</li>
-  <li><span class="component">LM2940T-9.0</span> LDO (U2, TO-220): IN ← raw <span class="pin">+9V</span> (after D1), GND → common ground, OUT → new <span class="pin">9V_Clean</span> net. This regulated rail feeds the NE5532's supply pins (8/4) and the R1/R2 bias divider — nothing else taps raw +9V for analog use.</li>
-  <li><span class="component">100nF</span> ceramic cap from <span class="pin">9V_Clean</span> to GND, right at the LDO's OUT pin (local stability bypass).</li>
-  <li><span class="component">100nF</span> decoupling cap between <span class="pin">3V3_A</span> and GND, close to the Seed.</li>
-  <li><span class="component">100nF</span> decoupling cap (C4) across the NE5532 supply pins (pin 8 to pin 4), close to the chip.</li>
-</ul>
-<div class="callout warn">
-  Rationale: running the op-amp directly off unregulated barrel-jack voltage was the source of an audible whine (barrel jack + sidechain connected = whine; USB power or no sidechain = quiet). The LDO isolates the analog supply from raw barrel-jack noise/ripple. Confirmed to have resolved the whine as of the last build session.
-</div>
+  <h3>Power</h3>
+  <ul>
+    <li>Daisy Seed: powered via USB during development. For finished unit, use the VIN pin (accepts 4.5–17V) or
+      regulated 5V on the 5V pin. VIN stays on the raw, unregulated barrel-jack rail — do not route it through the LDO
+      below.</li>
+    <li>Barrel jack → <span class="component">1N5819</span> reverse-polarity protection diode (D1) → raw <span
+        class="pin">+9V</span> node. This raw node feeds Daisy VIN directly.</li>
+    <li><span class="component">LM2940T-9.0</span> LDO (U2, TO-220): IN ← raw <span class="pin">+9V</span> (after D1),
+      GND → common ground, OUT → new <span class="pin">9V_Clean</span> net. This regulated rail feeds the NE5532's
+      supply pins (8/4) and the R1/R2 bias divider — nothing else taps raw +9V for analog use.</li>
+    <li><span class="component">100nF</span> ceramic cap from <span class="pin">9V_Clean</span> to GND, right at the
+      LDO's OUT pin (local stability bypass).</li>
+    <li><span class="component">100nF</span> decoupling cap between <span class="pin">3V3_A</span> and GND, close to the
+      Seed.</li>
+    <li><span class="component">100nF</span> decoupling cap (C4) across the NE5532 supply pins (pin 8 to pin 4), close
+      to the chip.</li>
+  </ul>
+  <div class="callout warn">
+    Rationale: running the op-amp directly off unregulated barrel-jack voltage was the source of an audible whine
+    (barrel jack + sidechain connected = whine; USB power or no sidechain = quiet). The LDO isolates the analog supply
+    from raw barrel-jack noise/ripple. Confirmed to have resolved the whine as of the last build session.
+  </div>
 
-<!-- NOTES -->
-<h2 id="notes">Notes</h2>
-<ul>
-  <li>Use <span class="pin">3V3_A</span> (analog 3.3V), not the digital 3V3 pin, as the reference for pot wiring and the D25 bias pair. The analog reference is isolated from digital switching noise.</li>
-  <li>Connect both AGND and DGND pins on the Seed to your ground rail.</li>
-  <li>The mid-rail bias divider (R1/R2 to mid-rail) is required for single-supply operation of the NE5532. Without it the output saturates to a supply rail.</li>
-  <li>The output coupling cap (C2) is required to strip the mid-rail DC bias before the signal reaches the Daisy ADC pin, which must stay within 0–3.3V.</li>
-  <li>The D25 bias pair (R4, 100kΩ to 3.3V_A; R3, 100kΩ to GND) is separately required — without it, the ADC pin itself has no defined center point for the AC-coupled signal to sit on, and readings can rail or "ghost" the previous ADC channel's value.</li>
-  <li>If the sidechain input clips (pre-filter reading pinned near 0 dB, no response to signal) after the LDO is in place, first confirm the D25 bias pair is present; if it still clips, reduce Rf1 ("Rf") from 47kΩ toward 33kΩ or 22kΩ to lower gain.</li>
-  <li>If the source device (e.g. Pocket Operator) has low output level instead, reduce Rg1 ("Rg") to increase gain. Gain = 1 + (Rf1 / Rg1).</li>
-  <li>Op-amp supply noise is the dominant noise source in this architecture — running U1A/U1C directly off unregulated barrel-jack voltage caused an audible whine, resolved by adding the LM2940 LDO on a dedicated <span class="pin">9V_Clean</span> rail feeding only the analog section (not Daisy VIN).</li>
-  <li>U1B (second NE5532 half) is configured as a unity-gain follower off the existing mid-rail bias node (see Unused op-amp half section) rather than left floating — this avoids unpredictable current draw or oscillation that could couple noise into the shared supply pins (8/4).</li>
-</ul>
+  <!-- NOTES -->
+  <h2 id="notes">Notes</h2>
+  <ul>
+    <li>Use <span class="pin">3V3_A</span> (analog 3.3V), not the digital 3V3 pin, as the reference for pot wiring and
+      the D25 bias pair. The analog reference is isolated from digital switching noise.</li>
+    <li>Connect both AGND and DGND pins on the Seed to your ground rail.</li>
+    <li>The mid-rail bias divider (R1/R2 to mid-rail) is required for single-supply operation of the NE5532. Without it
+      the output saturates to a supply rail.</li>
+    <li>The output coupling cap (C2) is required to strip the mid-rail DC bias before the signal reaches the Daisy ADC
+      pin, which must stay within 0–3.3V.</li>
+    <li>The D25 bias pair (R4, 100kΩ to 3.3V_A; R3, 100kΩ to GND) is separately required — without it, the ADC pin
+      itself has no defined center point for the AC-coupled signal to sit on, and readings can rail or "ghost" the
+      previous ADC channel's value.</li>
+    <li>If the sidechain input clips (pre-filter reading pinned near 0 dB, no response to signal) after the LDO is in
+      place, first confirm the D25 bias pair is present; if it still clips, reduce Rf1 ("Rf") from 47kΩ toward 33kΩ or
+      22kΩ to lower gain.</li>
+    <li>If the source device (e.g. Pocket Operator) has low output level instead, reduce Rg1 ("Rg") to increase gain.
+      Gain = 1 + (Rf1 / Rg1).</li>
+    <li>Op-amp supply noise is the dominant noise source in this architecture — running U1A/U1C directly off unregulated
+      barrel-jack voltage caused an audible whine, resolved by adding the LM2940 LDO on a dedicated <span
+        class="pin">9V_Clean</span> rail feeding only the analog section (not Daisy VIN).</li>
+    <li>U1B (second NE5532 half) is configured as a unity-gain follower off the existing mid-rail bias node (see Unused
+      op-amp half section) rather than left floating — this avoids unpredictable current draw or oscillation that could
+      couple noise into the shared supply pins (8/4).</li>
+  </ul>
 
-<footer>
-  Stereo Sidechain Compressor · Build Reference v6 · Daisy Seed / NE5532 + LM2940 LDO / No SMD
-</footer>
+  <footer>
+    Stereo Sidechain Compressor · Build Reference v6 · Daisy Seed / NE5532 + LM2940 LDO / No SMD
+  </footer>
 
 </body>
+
 </html>
