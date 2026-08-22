@@ -8,10 +8,10 @@
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-// #define DEBUG_LOG 1
+#define DEBUG_LOG 1
 
 // Uncomment to disable pots/switches and use fixed values for SC input testing
-// #define DISABLE_POTS 1
+#define DISABLE_POTS 1
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardcoded parameter values — swap these for pot readings once wired up.
@@ -682,14 +682,15 @@ int main(void)
                      FLT_VAR3(makeup_db),
                      FLT_VAR3(raw_ramp_pot_value));
         hw.PrintLine("Pre:" FLT_FMT3 " Post:" FLT_FMT3 " C:" FLT_FMT3
-                     " F:%s M:%s Byp:%s RampBtn:%d",
+                     " F:%s M:%s Byp:%s RampBtn:%d ClrSw:%d",
                      FLT_VAR3(pre_db),
                      FLT_VAR3(post_db),
                      FLT_VAR3(cutoff_hz),
                      filt_str,
                      sat_str,
                      effect_engaged ? "OFF" : "ON",
-                     !dsy_gpio_read(&unused_button) ? 1 : 0);
+                     !dsy_gpio_read(&unused_button) ? 1 : 0,
+                     !dsy_gpio_read(&clear_sw) ? 1 : 0);
         hw.DelayMs(250);
 #endif
     }
