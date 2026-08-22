@@ -38,3 +38,9 @@ Difficulty: Low. Effort: Low.
 What it is: Even with everything working correctly, if the attack and release times don't feel locked to the tempo, the pumping can sound random rather than musical. This is a parameter problem, not a code problem, but it's worth naming.
 Fix sketch: No code change needed — calculate attack and release times from BPM. For 120 BPM (500ms quarter note), a release of ~200–300ms creates tight French house pumping; ~600–800ms creates the slower breathe of classic trance. Attack should be fast enough to let the kick transient through (1–5ms) before clamping.
 Difficulty: N/A. Effort: Experimentation only.
+
+9. MISO option:  Perhaps enabled by using the mystery button, switching from center to low pass on filter twice while holding it. Would need to adjust the clear hidden settings thing to account for this. 
+
+10. Add a hidden mode maybe, that reverses the ducking behavior and instead only allows sound through when the sidechain hits. This could be center to high pass twice. 
+
+11. Stretch, because it requires a pcb change and additional pin: add a sidechain detector that uses the TRS input detection pin and switches to internal compression when nothing is plugged in. 
