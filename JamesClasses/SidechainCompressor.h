@@ -234,20 +234,28 @@ class SidechainCompressor {
   }
 
   float SaturatedSample(float x) const {
-    float driven = x * (1.0f + sat_amount_ * 4.0f);  // pre-gain into sat stage
+    // Fixed drive pushes typical audio levels into the nonlinear zone reliably.
+    // Using a variable drive + linear compensation (the previous approach) caused
+    // the compensation to cancel out most of the nonlinear effect, making
+    // sat_amount_ nearly inaudible at normal signal levels.
+    const float kDrive = 2.0f;
+    float driven = x * kDrive;
     float y;
     switch (sat_mode_) {
       case SatMode::kSoft:
-        y = SoftClipCubic(driven);
+        // Normalize back by kDrive so the linear region is unity gain
+        y = SoftClipCubic(driven) / kDrive;
         break;
       case SatMode::kFold:
+        // Wavefold output is already bounded [-1, 1] — no level comp needed
         y = Wavefold(driven);
         break;
       default:
-        y = driven;
+        y = x;
     }
-    // Compensate for pre-gain so output level stays roughly consistent
-    return y / (1.0f + sat_amount_ * 4.0f);
+    // Blend dry (compressed, clean) and saturated (compressed, distorted).
+    // sat_amount_ controls timbral character; output level stays consistent.
+    return (1.0f - sat_amount_) * x + sat_amount_ * y;
   }
 
   float Saturate(float x, Oversampler2x& os) {
