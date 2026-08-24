@@ -15,8 +15,12 @@ constexpr float SC_FILTER_INIT_FREQ = 1000.0f;
 constexpr float SC_FILTER_INIT_RES  = 0.5f;
 
 // Parameter Ranges & Scales
-constexpr float CUTOFF_MIN_HZ    = 20.0f;
-constexpr float CUTOFF_MAX_SCALE = 1000.0f;
+// constexpr float CUTOFF_MIN_HZ    = 20.0f;    // old: 20 Hz – 20 kHz (full audible spectrum)
+// constexpr float CUTOFF_MAX_SCALE = 1000.0f;  // old: 1000x multiplier
+constexpr float CUTOFF_MIN_HZ
+    = 60.0f; // 60 Hz – ~8 kHz (practical sidechain range)
+constexpr float CUTOFF_MAX_SCALE
+    = 133.0f; // 133x multiplier (60 * 133 ≈ 7980 Hz)
 
 constexpr float THRESHOLD_MIN_DB   = -60.0f;
 constexpr float THRESHOLD_RANGE_DB = 60.0f;
@@ -47,8 +51,8 @@ constexpr std::size_t AUDIO_BLOCK_SIZE = 4;
 constexpr float RAMP_RATE_MIN_HZ    = 0.02f; // ~50s period
 constexpr float RAMP_RATE_MAX_HZ    = 8.0f;  // fast tremolo
 constexpr float RAMP_MOVE_THRESHOLD = 0.03f; // 3% pot travel counts as "moved"
-constexpr int   RAMP_FLASH_COUNT    = 3;     // triple-flash when touching a mapped pot
-constexpr int   RAMP_FLASH_ON_MS    = 60;
-constexpr int   RAMP_FLASH_OFF_MS   = 60;
+constexpr int   RAMP_FLASH_COUNT = 3; // triple-flash when touching a mapped pot
+constexpr int   RAMP_FLASH_ON_MS = 60;
+constexpr int   RAMP_FLASH_OFF_MS = 60;
 
 #endif // CONSTANTS_H
