@@ -35,6 +35,17 @@ static const char* GetRateModeString(uint8_t mode)
     }
 }
 
+static const char* GetMisoString(uint8_t mode)
+{
+    switch(mode)
+    {
+        case MISO_NO: return "   No";
+        case MISO_L:  return "    L";
+        case MISO_R:  return "    R";
+        default:      return "   No";
+    }
+}
+
 static void RenderItemRow(StutterDisplay& display,
                           int             y,
                           bool            cursor_here,
@@ -217,6 +228,14 @@ static void RenderSettingsList(StutterDisplay&    display,
                               value_inverted);
             }
             break;
+            case MENU_ITEM_MISO:
+                RenderItemRow(display,
+                              y,
+                              cursor_here,
+                              "MISO      ",
+                              GetMisoString(cfg->miso_mode),
+                              value_inverted);
+                break;
             case MENU_ITEM_DEBUG:
                 RenderItemRow(display,
                               y,
@@ -382,6 +401,10 @@ void MenuHandleRotate(MenuContext* ctx, PedalConfig* cfg, int delta)
             if(val > 16)
                 val = 16;
             cfg->midi_channel = val;
+        }
+        else if(ctx->cursor == MENU_ITEM_MISO)
+        {
+            cfg->miso_mode = (cfg->miso_mode + 1) % MISO_COUNT;
         }
         ctx->needs_redraw = true;
     }

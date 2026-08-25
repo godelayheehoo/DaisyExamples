@@ -1,4 +1,4 @@
-#define DEBUG_MODE 1
+// #define DEBUG_MODE 1
 // #define TEST_WEAR_LEVELING
 #include "daisy_seed.h"
 #include "daisysp.h"
@@ -163,6 +163,17 @@ void AudioCallback(AudioHandle::InputBuffer  in,
     {
         float in_l = in[0][i];
         float in_r = in[1][i];
+
+        // Apply MISO (Mono In, Stereo Out) channel routing
+        uint8_t miso = runtime.miso_mode;
+        if(miso == MISO_L)
+        {
+            in_r = in_l; // copy left channel to both outputs
+        }
+        else if(miso == MISO_R)
+        {
+            in_l = in_r; // copy right channel to both outputs
+        }
 
         float out_l = in_l;
         float out_r = in_r;
@@ -525,6 +536,7 @@ int main(void)
     default_config.midi_sync_enabled  = 0;
     default_config.playback_rate_mode = PRM_OFF;
     default_config.midi_channel       = 1; // Default to MIDI Channel 1
+    default_config.miso_mode          = MISO_NO;
 
     storage.Init(default_config);
     PedalConfig& config = storage.GetSettings();
@@ -566,6 +578,7 @@ int main(void)
     runtime.pitch_detection_pending = false;
     runtime.semitone_offset         = 0;
     runtime.bypassed                = false;
+    runtime.miso_mode               = config.miso_mode;
 
     // Start peripherals
     hw.adc.Start();
@@ -998,6 +1011,7 @@ int main(void)
             menu_ctx.dirty             = false;
             runtime.quantize_trigger   = config.quantize_trigger;
             runtime.playback_rate_mode = config.playback_rate_mode;
+            runtime.miso_mode          = config.miso_mode;
         }
 
         // Run pitch detection asynchronously in main loop (not audio callback)

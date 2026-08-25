@@ -49,7 +49,10 @@ This is the default view. It displays:
 ### Settings Menu
 Press the Menu Encoder or the CON button on the Status Screen to enter BROWSE mode. The Settings Menu contains:
 * **MIDI SYNC:** Set to ON (sync buffer length to incoming MIDI clock beats) or OFF (use internal free-running tempo).
-* **QUANTIZE:** Enables/disables beat-quantized stutter triggers (see TODOs).
+* **QUANTIZE:** Enables/disables beat-quantized stutter triggers.
+* **RATE MODE:** Selects the playback rate quantization mode — OFF (continuous), LFQ (loop-frequency quantized), or PTQ (pitch-detection quantized).
+* **MIDI CH:** Selects the MIDI channel (1–16) or OFF to disable MIDI note/CC input.
+* **MISO:** Mono In, Stereo Out routing mode. When set to **No** (default), both input channels are passed normally. When set to **L**, the left input channel (audio stream 0) is copied to both output channels. When set to **R**, the right input channel (audio stream 1) is copied to both output channels. This is useful when connecting a mono source to only one input jack.
 * **DEBUG:** Enters the Debug screen.
 
 To adjust a setting, scroll to it, press the Menu Encoder or CON, rotate the encoder to change the value, and press CON/Encoder to save. Pressing BAK cancels the change and restores the previous value.
