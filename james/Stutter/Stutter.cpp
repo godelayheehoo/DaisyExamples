@@ -239,9 +239,11 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                                    - active_buffer_length)
                                   % STUTTER_BUFFER_MAX_SAMPLES;
                             runtime.loop_start_pos = loop_start_pos;
-                            read_pos_accum         = 0.0f;
-                            current_state          = STUTTER_PLAYING;
-                            runtime.state          = STUTTER_PLAYING;
+                            runtime.captured_buffer_length
+                                = active_buffer_length;
+                            read_pos_accum = 0.0f;
+                            current_state  = STUTTER_PLAYING;
+                            runtime.state  = STUTTER_PLAYING;
 
                             // Compute loop frequency for LFQ/PTQ modes
                             runtime.loop_frequency_hz
@@ -276,9 +278,10 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                                       - active_buffer_length)
                                      % STUTTER_BUFFER_MAX_SAMPLES;
                     runtime.loop_start_pos = loop_start_pos;
-                    read_pos_accum         = 0.0f;
-                    current_state          = STUTTER_PLAYING;
-                    runtime.state          = STUTTER_PLAYING;
+                    runtime.captured_buffer_length = active_buffer_length;
+                    read_pos_accum                 = 0.0f;
+                    current_state                  = STUTTER_PLAYING;
+                    runtime.state                  = STUTTER_PLAYING;
 
                     // Compute loop frequency for LFQ/PTQ modes
                     runtime.loop_frequency_hz
@@ -562,6 +565,7 @@ int main(void)
     runtime.wet                     = 0.5f;
     runtime.buffer_length           = static_cast<uint32_t>(SAMPLE_RATE);
     runtime.loop_start_pos          = 0;
+    runtime.captured_buffer_length  = static_cast<uint32_t>(SAMPLE_RATE);
     runtime.trigger_active          = false;
     runtime.bpm                     = BPM_DEFAULT;
     runtime.has_clock               = false;
@@ -653,11 +657,13 @@ int main(void)
                    && runtime.detected_pitch_hz > 0.0f
                    && runtime.loop_frequency_hz > 0.0f)
                 {
-                    // PTQ: shift relative to detected pitch
+                    // PTQ: shift relative to detected pitch. Rate is the
+                    // ratio of desired freq to the ACTUAL content pitch, not
+                    // the loop's repetition rate (that's LFQ's job).
                     float target_freq
                         = runtime.detected_pitch_hz * rate_from_semitones;
                     runtime.target_rate
-                        = target_freq / runtime.loop_frequency_hz;
+                        = target_freq / runtime.detected_pitch_hz;
                 }
                 else
                 {
@@ -801,7 +807,7 @@ int main(void)
                                 float target_freq = runtime.detected_pitch_hz
                                                     * rate_from_semitones;
                                 runtime.target_rate
-                                    = target_freq / runtime.loop_frequency_hz;
+                                    = target_freq / runtime.detected_pitch_hz;
                             }
                             else
                             {
@@ -1018,19 +1024,22 @@ int main(void)
         if(runtime.pitch_detection_pending)
         {
             runtime.pitch_detection_pending = false;
-            RunPitchDetection(runtime.loop_start_pos, runtime.buffer_length);
+            // Use captured_buffer_length (locked in at trigger time), not the
+            // live buffer_length, which may have already changed if the
+            // subdivision/tempo moved in the few ms since capture.
+            RunPitchDetection(runtime.loop_start_pos,
+                              runtime.captured_buffer_length);
 
             // If PTQ and pitch was detected, recompute target rate at current
             // semitone offset now that we have a valid pitch reference
             if(runtime.playback_rate_mode == PRM_PTQ && runtime.pitch_valid
-               && runtime.detected_pitch_hz > 0.0f
-               && runtime.loop_frequency_hz > 0.0f)
+               && runtime.detected_pitch_hz > 0.0f)
             {
                 float rate_from_semitones
                     = powf(2.0f, runtime.semitone_offset / 12.0f);
                 float target_freq
                     = runtime.detected_pitch_hz * rate_from_semitones;
-                runtime.target_rate = target_freq / runtime.loop_frequency_hz;
+                runtime.target_rate = target_freq / runtime.detected_pitch_hz;
                 runtime.target_rate
                     = fclamp(runtime.target_rate, RATE_MIN, RATE_MAX);
             }

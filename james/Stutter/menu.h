@@ -59,8 +59,12 @@ typedef struct
     volatile float        rate; // current smoothed playback rate (1.0 = unity)
     volatile float        target_rate;   // set by encoder in main loop
     volatile float        wet;           // current wet/dry blend (0.0-1.0)
-    volatile uint32_t     buffer_length;  // in samples
+    volatile uint32_t     buffer_length;  // in samples (live, tracks knob/tempo)
     volatile uint32_t     loop_start_pos; // index of loop start in SDRAM buffer
+    volatile uint32_t
+        captured_buffer_length; // length actually locked in at capture time;
+                                 // used by pitch detection so it analyzes the
+                                 // same window that's actually looping
     volatile bool     trigger_active;     // true while rate encoder push is held
     volatile float    bpm;               // current tempo in BPM
     volatile bool     has_clock;         // true if MIDI clock is active
