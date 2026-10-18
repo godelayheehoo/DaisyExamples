@@ -120,6 +120,22 @@ void UpdateFlash(uint32_t now_ms)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// DC-blocking filter for the sidechain ADC input.
+// The analog front end (R3/R4 divider + TL072) centers the signal at ~1.65V
+// (raw ADC ≈ 0.497) at idle. Without removing this bias:
+//   • LPF mode passes it at near-unity → phantom ~-6 dB "signal" → threshold
+//     fires even with no cable connected.
+//   • HPF/BPF modes correctly reject DC → real kick signal appears ~30 dB
+//     lower than LPF baseline → threshold never crosses, modes appear broken.
+// One-pole DC blocker: y[n] = x[n] - x[n-1] + R*y[n-1]
+// R = 0.999 → cutoff ≈ 7-8 Hz at 48kHz — well below kick fundamentals
+// (40–100 Hz), so only the static bias is stripped.
+// ─────────────────────────────────────────────────────────────────────────────
+static float    sc_dc_x1    = 0.0f;
+static float    sc_dc_y1    = 0.0f;
+constexpr float kScDcBlockR = 0.999f;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Audio callback
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -149,7 +165,12 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // Linearly interpolate the sidechain ADC input across the block
         // to prevent digital stair-stepping/zipper noise artifacts.
         float t         = (float)(i + 1) * inv_size;
-        float sc_in_pre = sc_start + t * (sc_target - sc_start);
+        float sc_in_raw = sc_start + t * (sc_target - sc_start);
+
+        // Strip the ~1.65V analog bias before treating this as a signal.
+        float sc_in_pre = sc_in_raw - sc_dc_x1 + kScDcBlockR * sc_dc_y1;
+        sc_dc_x1        = sc_in_raw;
+        sc_dc_y1        = sc_in_pre;
 
         // Track pre-filter peak
         float abs_pre = fabsf(sc_in_pre);

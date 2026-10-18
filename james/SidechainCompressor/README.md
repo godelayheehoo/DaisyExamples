@@ -1,4 +1,5 @@
 # Stereo Sidechain Compressor
+Version 0.5.0
 
 A desktop stereo compressor with sidechain input, built around an Electrosmith Daisy Seed. A signal plugged into the sidechain input (e.g., a kick drum) drives the compression envelope, causing the stereo audio to "duck."
 
