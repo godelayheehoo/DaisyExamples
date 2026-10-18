@@ -351,7 +351,7 @@ def build_pdf(filename="Stutter_Unit_User_Manual.pdf"):
         ("Wet / Dry Potentiometer", "Adjusts the analog mix between your live dry signal and the stutter loop (0% to 100% Wet)."),
         ("Menu Encoder", "<b>Rotate:</b> Scroll OLED menu items. <b>Short Press:</b> Select / Edit parameter or confirm changes."),
         ("CON (Confirm) Button", "Standalone tactile button acting as a redundant 'Enter' / Confirm key for menu navigation."),
-        ("BAK (Back) Button", "Standalone button to cancel menu edits, step back a screen, or exit the Debug view."),
+        ("BAK (Back) Button", "In menus: cancels edits, steps back a screen, or exits Debug. On Status Screen: tap to snap rate back to 1.0x; hold while turning the Mix knob to snap mix to 0.25 steps."),
         ("Stutter Indicator LED", "Glows bright red whenever a stutter loop is active (recording or playing back)."),
         ("OLED Display (128x64)", "High-contrast SH1106 display showing play state, rate multiplier, subdivision, and MIDI clock.")
     ]

@@ -277,7 +277,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                     loop_start_pos = (write_pos + STUTTER_BUFFER_MAX_SAMPLES
                                       - active_buffer_length)
                                      % STUTTER_BUFFER_MAX_SAMPLES;
-                    runtime.loop_start_pos = loop_start_pos;
+                    runtime.loop_start_pos         = loop_start_pos;
                     runtime.captured_buffer_length = active_buffer_length;
                     read_pos_accum                 = 0.0f;
                     current_state                  = STUTTER_PLAYING;
@@ -941,8 +941,78 @@ int main(void)
         if(pot_frac < 0)
             pot_frac = -pot_frac;
 
-        // Update runtime pot value
-        runtime.wet = wet_dry_val;
+        // Handle Back button mix knob snapping and movement detection (Status screen only)
+        static float bak_press_mix_val     = 0.0f;
+        static bool  bak_is_pressed        = false;
+        static bool  bak_mix_moved         = false;
+        static bool  mix_snapped           = false;
+        static float snapped_mix_val       = 0.5f;
+        static float last_released_pot_val = 0.0f;
+
+        if(menu_ctx.state == MENU_STATE_STATUS)
+        {
+            if(button_bak.RisingEdge()
+               || (button_bak.Pressed() && !bak_is_pressed))
+            {
+                bak_is_pressed    = true;
+                bak_press_mix_val = wet_dry_val;
+                bak_mix_moved     = false;
+            }
+
+            if(button_bak.Pressed())
+            {
+                float mix_diff = fabsf(wet_dry_val - bak_press_mix_val);
+                if(mix_diff >= MIX_KNOB_MOVE_THRESHOLD)
+                {
+                    bak_mix_moved = true;
+                }
+
+                if(bak_mix_moved)
+                {
+                    float snapped
+                        = roundf(wet_dry_val / MIX_SNAP_STEP) * MIX_SNAP_STEP;
+                    snapped         = fclamp(snapped, 0.0f, 1.0f);
+                    runtime.wet     = snapped;
+                    snapped_mix_val = snapped;
+                    mix_snapped     = true;
+                }
+                else if(mix_snapped)
+                {
+                    runtime.wet = snapped_mix_val;
+                }
+                else
+                {
+                    runtime.wet = wet_dry_val;
+                }
+            }
+            else
+            {
+                if(mix_snapped)
+                {
+                    // Latch snapped value until pot physically moves beyond deadband
+                    if(fabsf(wet_dry_val - last_released_pot_val) > 0.03f)
+                    {
+                        mix_snapped = false;
+                        runtime.wet = wet_dry_val;
+                    }
+                    else
+                    {
+                        runtime.wet = snapped_mix_val;
+                    }
+                }
+                else
+                {
+                    runtime.wet = wet_dry_val;
+                }
+            }
+        }
+        else
+        {
+            mix_snapped    = false;
+            bak_is_pressed = false;
+            bak_mix_moved  = false;
+            runtime.wet    = wet_dry_val;
+        }
 
         // Get rotary switch position (0-4, or -1 if in transition)
         int rot_pos = -1;
@@ -984,30 +1054,82 @@ int main(void)
         MenuTick(&menu_ctx, &config, elapsed_ms);
 
         // Dispatch Menu Encoder rotation events
+        static uint32_t menu_enc_press_time           = 0;
+        static uint32_t menu_last_rotate_time         = 0;
+        static bool     menu_enc_pressed              = false;
+        static bool     menu_enc_rotated_during_press = false;
+
         int32_t menu_inc = -menu_encoder.Increment();
         if(menu_inc != 0)
         {
+            menu_last_rotate_time = now_ms;
+            if(menu_enc_pressed)
+            {
+                menu_enc_rotated_during_press = true;
+            }
             MenuHandleRotate(&menu_ctx, &config, menu_inc);
         }
 
-        // Dispatch Menu Encoder press events
-        // Require a minimum hold of 20ms to filter bounce that slips past the
-        // libDaisy 8ms hardware debounce window.
-        static const float MENU_ENC_MIN_PRESS_MS = 20.0f;
-        if(menu_encoder.FallingEdge()
-           && menu_encoder.TimeHeldMs() >= MENU_ENC_MIN_PRESS_MS)
+        // Track Menu Encoder press state
+        if(menu_encoder.RisingEdge())
         {
-            MenuHandleShortPress(&menu_ctx, &config);
+            menu_enc_press_time           = now_ms;
+            menu_enc_pressed              = true;
+            menu_enc_rotated_during_press = false;
+        }
+        else if(menu_encoder.Pressed() && !menu_enc_pressed)
+        {
+            menu_enc_press_time           = now_ms;
+            menu_enc_pressed              = true;
+            menu_enc_rotated_during_press = false;
+        }
+
+        // Dispatch Menu Encoder press events on release
+        if(menu_encoder.FallingEdge())
+        {
+            if(menu_enc_pressed)
+            {
+                menu_enc_pressed        = false;
+                uint32_t press_duration = now_ms - menu_enc_press_time;
+                bool     rotated_recently
+                    = (menu_last_rotate_time != 0)
+                      && (now_ms - menu_last_rotate_time < 50);
+
+                // Require at least 20ms hold to filter micro-glitches/bounce,
+                // and reject presses that coincided with knob rotation.
+                if(!menu_enc_rotated_during_press && !rotated_recently
+                   && press_duration >= 20)
+                {
+                    MenuHandleEncoderPress(&menu_ctx, &config);
+                }
+            }
         }
 
         // Handle dedicated menu buttons
         if(button_bak.FallingEdge())
         {
-            MenuHandleBackPress(&menu_ctx, &config);
+            bak_is_pressed = false;
+            if(menu_ctx.state == MENU_STATE_STATUS)
+            {
+                last_released_pot_val = wet_dry_val;
+                if(!bak_mix_moved)
+                {
+                    // Tapped on status screen without moving mix knob:
+                    // snap stutter rate back to 1.0 (unity)
+                    runtime.target_rate     = RATE_INIT;
+                    runtime.rate            = RATE_INIT;
+                    runtime.semitone_offset = 0;
+                    menu_ctx.needs_redraw   = true;
+                }
+            }
+            else
+            {
+                MenuHandleBackPress(&menu_ctx, &config);
+            }
         }
         if(button_con.FallingEdge())
         {
-            MenuHandleShortPress(&menu_ctx, &config);
+            MenuHandleConfirmPress(&menu_ctx, &config);
         }
 
         // Handle dirty configuration storage saves

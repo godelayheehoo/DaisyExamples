@@ -40,9 +40,9 @@ static const char* GetMisoString(uint8_t mode)
     switch(mode)
     {
         case MISO_NO: return "   No";
-        case MISO_L:  return "    L";
-        case MISO_R:  return "    R";
-        default:      return "   No";
+        case MISO_L: return "    L";
+        case MISO_R: return "    R";
+        default: return "   No";
     }
 }
 
@@ -130,9 +130,15 @@ static void RenderStatusScreen(StutterDisplay&       display,
     if(rt->playback_rate_mode == PRM_OFF)
     {
         int rate_whole = static_cast<int>(rt->rate);
-        int rate_frac  = static_cast<int>((rt->rate - rate_whole) * 100.0f);
+        int rate_frac
+            = static_cast<int>((rt->rate - rate_whole) * 100.0f + 0.5f);
         if(rate_frac < 0)
             rate_frac = -rate_frac;
+        if(rate_frac >= 100)
+        {
+            rate_whole += rate_frac / 100;
+            rate_frac %= 100;
+        }
         snprintf(
             buf, sizeof(buf), "RATE: %d.%02d        ", rate_whole, rate_frac);
     }
@@ -154,9 +160,14 @@ static void RenderStatusScreen(StutterDisplay&       display,
     display.WriteString(buf, Font_7x10, true);
 
     int wet_whole = static_cast<int>(rt->wet);
-    int wet_frac  = static_cast<int>((rt->wet - wet_whole) * 100.0f);
+    int wet_frac  = static_cast<int>((rt->wet - wet_whole) * 100.0f + 0.5f);
     if(wet_frac < 0)
         wet_frac = -wet_frac;
+    if(wet_frac >= 100)
+    {
+        wet_whole += wet_frac / 100;
+        wet_frac %= 100;
+    }
     snprintf(buf, sizeof(buf), "WET:  %d.%02d        ", wet_whole, wet_frac);
     display.SetCursor(0, 40);
     display.WriteString(buf, Font_7x10, true);
@@ -234,6 +245,14 @@ static void RenderSettingsList(StutterDisplay&    display,
                               cursor_here,
                               "MISO      ",
                               GetMisoString(cfg->miso_mode),
+                              value_inverted);
+                break;
+            case MENU_ITEM_ABOUT:
+                RenderItemRow(display,
+                              y,
+                              cursor_here,
+                              "ABOUT     ",
+                              "ENTER",
                               value_inverted);
                 break;
             case MENU_ITEM_DEBUG:
@@ -339,6 +358,31 @@ static void RenderDebugScreen(StutterDisplay&       display,
     display.WriteString("[>]=BACK          ", Font_7x10, true);
 }
 
+static void RenderAboutScreen(StutterDisplay& display)
+{
+    char buf[32];
+
+    display.SetCursor(0, 0);
+    display.WriteString("-- ABOUT --       ", Font_7x10, true);
+
+    snprintf(buf, sizeof(buf), "%-18s", FIRMWARE_NAME);
+    display.SetCursor(0, 10);
+    display.WriteString(buf, Font_7x10, true);
+
+    snprintf(buf, sizeof(buf), "Version %-10s", FIRMWARE_VERSION);
+    display.SetCursor(0, 20);
+    display.WriteString(buf, Font_7x10, true);
+
+    display.SetCursor(0, 30);
+    display.WriteString("godelayheehoo     ", Font_7x10, true);
+
+    display.SetCursor(0, 40);
+    display.WriteString("@github.com       ", Font_7x10, true);
+
+    display.SetCursor(0, 50);
+    display.WriteString("[>]=BACK          ", Font_7x10, true);
+}
+
 // ── Public API Implementation ──────────────────────────────────────────────────
 
 void MenuInit(MenuContext* ctx)
@@ -424,6 +468,10 @@ void MenuHandleShortPress(MenuContext* ctx, PedalConfig* cfg)
             {
                 ctx->state = MENU_STATE_DEBUG;
             }
+            else if(ctx->cursor == MENU_ITEM_ABOUT)
+            {
+                ctx->state = MENU_STATE_ABOUT;
+            }
             else
             {
                 ctx->edit_shadow = *cfg;
@@ -437,12 +485,26 @@ void MenuHandleShortPress(MenuContext* ctx, PedalConfig* cfg)
             ctx->needs_redraw = true;
             break;
         case MENU_STATE_DEBUG:
+        case MENU_STATE_ABOUT:
             ctx->state        = MENU_STATE_BROWSE;
             ctx->needs_redraw = true;
             break;
     }
 }
 
+void MenuHandleEncoderPress(MenuContext* ctx, PedalConfig* cfg)
+{
+    // Currently acts as a redundant input to the Confirm (CON) button.
+    // Separated into its own function so specialized behavior can be assigned in the future.
+    MenuHandleShortPress(ctx, cfg);
+}
+
+void MenuHandleConfirmPress(MenuContext* ctx, PedalConfig* cfg)
+{
+    // Standalone Confirm (CON) button handler.
+    // Separated into its own function so specialized behavior can be assigned in the future.
+    MenuHandleShortPress(ctx, cfg);
+}
 
 void MenuHandleBackPress(MenuContext* ctx, PedalConfig* cfg)
 {
@@ -460,6 +522,7 @@ void MenuHandleBackPress(MenuContext* ctx, PedalConfig* cfg)
             ctx->needs_redraw = true;
             break;
         case MENU_STATE_DEBUG:
+        case MENU_STATE_ABOUT:
             ctx->state        = MENU_STATE_BROWSE;
             ctx->needs_redraw = true;
             break;
@@ -611,6 +674,7 @@ void MenuRender(StutterDisplay&       display,
         case MENU_STATE_BROWSE: RenderBrowseScreen(display, ctx, cfg); break;
         case MENU_STATE_EDIT: RenderEditScreen(display, ctx, cfg); break;
         case MENU_STATE_DEBUG: RenderDebugScreen(display, ctx, cfg, rt); break;
+        case MENU_STATE_ABOUT: RenderAboutScreen(display); break;
     }
 
 #ifdef MENU_DEBUG

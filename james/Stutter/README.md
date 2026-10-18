@@ -29,7 +29,10 @@ The hardware is comprised of the following key interfaces, mapped in pins.h:
 5. **Confirm (CON) Button:**
    * A standalone push button that acts as a redundant alternative to the menu encoder push.
 6. **Back (BAK) Button:**
-   * A standalone push button used to exit menus, cancel setting modifications, or exit the debug page.
+   * In Menus: Exits menus, cancels setting modifications, or exits the debug page.
+   * On Status Screen:
+     * **Tap (press and release):** Instantly snaps playback rate back to unity (1.00x / 0 semitones).
+     * **Hold + Turn Mix Pot:** Snaps the wet/dry mix to 0.25 increments (0.00, 0.25, 0.50, 0.75, 1.00) rather than continuous tracking.
 7. **Stutter LED:**
    * A standalone indicator LED that illuminates whenever the stutter is active (recording or playing back).
 8. **OLED Display:**
@@ -53,10 +56,14 @@ Press the Menu Encoder or the CON button on the Status Screen to enter BROWSE mo
 * **RATE MODE:** Selects the playback rate quantization mode — OFF (continuous), LFQ (loop-frequency quantized), or PTQ (pitch-detection quantized).
 * **MIDI CH:** Selects the MIDI channel (1–16) or OFF to disable MIDI note/CC input.
 * **MISO:** Mono In, Stereo Out routing mode. When set to **No** (default), both input channels are passed normally. When set to **L**, the left input channel (audio stream 0) is copied to both output channels. When set to **R**, the right input channel (audio stream 1) is copied to both output channels. This is useful when connecting a mono source to only one input jack.
+* **ABOUT:** Enters the About screen (firmware name, version, and author contact).
 * **DEBUG:** Enters the Debug screen.
 
 To adjust a setting, scroll to it, press the Menu Encoder or CON, rotate the encoder to change the value, and press CON/Encoder to save. Pressing BAK cancels the change and restores the previous value.
 The system automatically times out and returns to the Status Screen after 5 seconds of inactivity in the browse menu.
+
+### About Screen
+Select ABOUT from the menu list to display firmware details and author contact information (Firmware Name, Version, and GitHub handle). Press the BAK button, CON button, or click the menu encoder to return to the Settings Menu.
 
 ### Debug Screen
 Select DEBUG from the menu list to display raw values of all connected physical controls (potentiometer voltage, pin states of encoders, switch inputs, rotary dial position, and CON/BAK buttons). Use this screen to verify wiring. Press the BAK button, CON button, or click the menu encoder to return to the Settings Menu.

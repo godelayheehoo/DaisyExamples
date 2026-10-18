@@ -47,6 +47,8 @@ Four screens exist. Only one is active at a time.
 | From | Event | To | Side effect |
 |------|-------|----|-------------|
 | `STATUS` | Short press / CON | `BROWSE` | Reset `idle_timer_ms` to 0 |
+| `STATUS` | BAK (Tap) | `STATUS` | Snap playback rate back to 1.0 (unity / 0 semitones) |
+| `STATUS` | BAK (Hold) + Turn Mix | `STATUS` | Snap wet/dry mix to nearest 0.25 increment |
 | `BROWSE` | Encoder rotate | `BROWSE` | Move cursor; reset `idle_timer_ms` |
 | `BROWSE` | Short press / CON | `EDIT` | Copy current `PedalConfig` into `edit_shadow` (if cursor is not on `DEBUG` item) |
 | `BROWSE` | Short press / CON | `DEBUG` | Transition to debug screen (if cursor is on `DEBUG` item) |
@@ -242,7 +244,7 @@ Three encoder events and two hardware button events to detect and dispatch in th
 
 | State | Rotate | Short press / CON | BAK button |
 |-------|--------|-------------------|------------|
-| `STATUS` | ignored | → `BROWSE` | ignored |
+| `STATUS` | ignored | → `BROWSE` | **Tap:** Snap rate to 1.0<br>**Hold + Mix:** Snap mix to 0.25 |
 | `BROWSE` | Move cursor ±1, clamp to [0, `MENU_ITEM_COUNT-1`]; reset `idle_timer_ms` | If `cursor == MENU_ITEM_DEBUG` → `DEBUG`<br>Else → `EDIT`, copy config to `edit_shadow` | → `STATUS` |
 | `EDIT` | Toggle/cycle value of `cfg[cursor]` (see below) | Commit; set `dirty = true`; → `BROWSE` | Restore `edit_shadow` → `cfg`; → `BROWSE` |
 | `DEBUG` | ignored | → `BROWSE` | → `BROWSE` |

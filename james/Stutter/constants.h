@@ -2,6 +2,13 @@
 #include <cstdint>
 
 // =============================================================================
+// FIRMWARE / BUILD CONSTANTS
+// =============================================================================
+constexpr const char* FIRMWARE_NAME    = "Stuttererer";
+constexpr const char* FIRMWARE_VERSION = "1.0.0";
+constexpr const char* FIRMWARE_AUTHOR  = "godelayheehoo@github.com";
+
+// =============================================================================
 // AUDIO / BUFFER CONSTANTS
 // =============================================================================
 constexpr float    SAMPLE_RATE                = 48000.0f;
@@ -45,3 +52,9 @@ constexpr float PITCH_CONFIDENCE_THRESHOLD = 0.7f;
 // =============================================================================
 constexpr uint32_t MENU_IDLE_TIMEOUT_MS     = 5000;
 constexpr uint32_t DISPLAY_UPDATE_PERIOD_MS = 50;
+
+// =============================================================================
+// CONTROL / POTENTIOMETER CONSTANTS
+// =============================================================================
+constexpr float MIX_KNOB_MOVE_THRESHOLD = 0.5f;  // min change on pot while Back is held to register movement
+constexpr float MIX_SNAP_STEP           = 0.25f; // snap quantization interval when Back is held

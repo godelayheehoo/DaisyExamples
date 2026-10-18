@@ -154,15 +154,15 @@ A second rotary encoder, used only for navigating the OLED menu. Same wiring pat
 
 Two standalone push buttons used for direct navigation and editing functions:
 *   **CON (Confirm)** button: Behaves identically to pushing the menu encoder button. Used to enter menus or save edited values.
-*   **BAK (Back)** button: Used to exit screens, cancel edits, or go back to the previous screen.
+*   **BAK (Back)** button: In menus, used to exit screens, cancel edits, or return to the previous screen. On the main Status Screen, tapping snaps playback rate back to 1.00x, and holding while turning the mix knob snaps mix to 0.25 steps.
 
 ### Wiring:
 For each button, connect one terminal to the Daisy Seed pin and the other terminal to the digital ground (**GND**). No external pull-up resistors are required as the firmware enables internal pull-ups on these pins.
 
 | Button | Daisy Pin | Notes |
 |---|---|---|
-| Back (BAK) | **D25** | Active LOW; exits/cancels |
-| Confirm (CON) | **D26** | Active LOW; enters/saves |
+| Back (BAK) | **D25** | Active LOW; exits/cancels, resets rate (tap), snaps mix (hold+pot) |
+| Confirm (CON) | **D26** | Active LOW; enters/saves (redundant to menu encoder push) |
 
 ---
 
