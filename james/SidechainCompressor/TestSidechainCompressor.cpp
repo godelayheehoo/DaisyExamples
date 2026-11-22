@@ -339,15 +339,15 @@ int main(void)
     unused_button_led.pull = DSY_GPIO_NOPULL;
     dsy_gpio_init(&unused_button_led);
 
-    // ── Startup LED sequence: SC -> Mystery -> Bypass, 3x each ──────────────
+    // ── Startup LED sequence: chase SC -> Mystery -> Bypass, 3 cycles ───────
     dsy_gpio *startup_leds[] = {&led, &unused_button_led, &led_footswitch};
     for(dsy_gpio *l : startup_leds)
     {
         dsy_gpio_write(l, 0);
     }
-    for(dsy_gpio *l : startup_leds)
+    for(int i = 0; i < INIT_FLASH_COUNT; i++)
     {
-        for(int i = 0; i < INIT_FLASH_COUNT; i++)
+        for(dsy_gpio *l : startup_leds)
         {
             dsy_gpio_write(l, 1);
             hw.DelayMs(INIT_FLASH_DELAY_MS);
