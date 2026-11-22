@@ -25,7 +25,8 @@ constexpr float CUTOFF_MAX_SCALE
 constexpr float THRESHOLD_MIN_DB   = -60.0f;
 constexpr float THRESHOLD_RANGE_DB = 60.0f;
 
-constexpr float RATIO_MAX_EXP = 100.0f;
+// constexpr float RATIO_MAX_EXP = 100.0f;
+constexpr float RATIO_MAX_EXP = 20.0f;
 
 constexpr float ATTACK_MIN_MS   = 0.2f;
 constexpr float ATTACK_RANGE_MS = 150.0f;

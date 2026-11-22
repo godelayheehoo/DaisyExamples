@@ -12,7 +12,7 @@ A desktop stereo compressor with sidechain input, built around an Electrosmith D
 
 ### Controls
 > [!IMPORTANT]
-> **Wiring Note**: Due to a hardware wiring reversal (GND and 3V3_A swapped on the pots), all potentiometer readings are inverted in code (`1.0f - reading`). The table below reflects the corrected pin assignments and expected behavior.
+> **Wiring Note**: Due to a hardware wiring reversal (GND and 3V3_A swapped on the pots), all potentiometer readings are inverted in code (`1.0f - reading`). The table below reflects the corrected pin assignments and expected behavior. -- this may no longer be true, verify on build!
 
 | Control | Daisy Pin | Range |
 | --- | --- | --- |

@@ -44,3 +44,5 @@ Difficulty: N/A. Effort: Experimentation only.
 10. Add a hidden mode maybe, that reverses the ducking behavior and instead only allows sound through when the sidechain hits. This could be center to high pass twice. 
 
 11. Stretch, because it requires a pcb change and additional pin: add a sidechain detector that uses the TRS input detection pin and switches to internal compression when nothing is plugged in. To do this, we just change the sc_in signal to `float sc_in = fmaxf(fabsf(left), fabsf(right));`.  
+
+When doing this, we should temporarily add the peak audio output to the debug code output so we can make sure it follows the same basic range as the external sidechain input. 

@@ -8,7 +8,7 @@
 using namespace daisy;
 
 // Uncomment the line below to enable serial logging
-// #define DEBUG_LOG 1
+#define DEBUG_LOG 1
 
 // Uncomment to disable pots/switches and use fixed values for SC input testing
 // #define DISABLE_POTS 1
@@ -309,7 +309,7 @@ int main(void)
     hw.PrintLine("Sidechain Compressor Test");
 #endif
 
-    // ── LED init — flash 3x on boot to confirm hardware is alive ─────────────
+    // ── LED init ─────────────────────────────────────────────────────────────
     led.pin  = hw.GetPin(PIN_LED);
     led.mode = DSY_GPIO_MODE_OUTPUT_PP;
     led.pull = DSY_GPIO_NOPULL;
@@ -338,14 +338,22 @@ int main(void)
     unused_button_led.mode = DSY_GPIO_MODE_OUTPUT_PP;
     unused_button_led.pull = DSY_GPIO_NOPULL;
     dsy_gpio_init(&unused_button_led);
-    dsy_gpio_write(&unused_button_led, 0); // ramp LED starts OFF
 
-    for(int i = 0; i < INIT_FLASH_COUNT; i++)
+    // ── Startup LED sequence: SC -> Mystery -> Bypass, 3x each ──────────────
+    dsy_gpio *startup_leds[] = {&led, &unused_button_led, &led_footswitch};
+    for(dsy_gpio *l : startup_leds)
     {
-        dsy_gpio_write(&led, 1);
-        hw.DelayMs(INIT_FLASH_DELAY_MS);
-        dsy_gpio_write(&led, 0);
-        hw.DelayMs(INIT_FLASH_DELAY_MS);
+        dsy_gpio_write(l, 0);
+    }
+    for(dsy_gpio *l : startup_leds)
+    {
+        for(int i = 0; i < INIT_FLASH_COUNT; i++)
+        {
+            dsy_gpio_write(l, 1);
+            hw.DelayMs(INIT_FLASH_DELAY_MS);
+            dsy_gpio_write(l, 0);
+            hw.DelayMs(INIT_FLASH_DELAY_MS);
+        }
     }
 
 
