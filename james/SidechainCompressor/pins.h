@@ -27,8 +27,10 @@ constexpr int PIN_SAT_SW1 = 26; // D26 (board pin 33)
 constexpr int PIN_SAT_SW2 = 27; // D27 (board pin 34)
 
 // Filter Mode Toggle Switch
-constexpr int PIN_FILTER_SW1 = 11; // D11 (board pin 12)
-constexpr int PIN_FILTER_SW2 = 12; // D12 (board pin 13)
+/// Notice these are switched, to better reflect the natural way to wire these
+/// (which I need to better document)
+constexpr int PIN_FILTER_SW2 = 11; // D11 (board pin 12)
+constexpr int PIN_FILTER_SW1 = 12; // D12 (board pin 13)
 
 // Status LED
 constexpr int PIN_LED = 30; // D30 (board pin 37)

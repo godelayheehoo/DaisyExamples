@@ -10,6 +10,14 @@ using namespace daisy;
 // Uncomment the line below to enable serial logging
 #define DEBUG_LOG 1
 
+// Uncomment to enable hardware test mode (works with ./test_knobs.py).
+// Takes precedence over DEBUG_LOG if both are defined.
+#define TEST_KNOBS_MODE 1
+
+#ifdef TEST_KNOBS_MODE
+#undef DEBUG_LOG
+#endif
+
 // Uncomment to disable pots/switches and use fixed values for SC input testing
 // #define DISABLE_POTS 1
 
@@ -356,6 +364,81 @@ int main(void)
         }
     }
 
+#ifdef TEST_KNOBS_MODE
+    // ── Interactive Hardware Test Mode (for ./test_knobs.py) ─────────────────
+    hw.StartLog(true);
+    hw.PrintLine("TEST_KNOBS_MODE");
+
+    auto ReadPotPermille = [](AdcChannel ch) -> int
+    {
+        float v = 1.0f - hw.adc.GetFloat(ch);
+        if(v < 0.0f)
+            v = 0.0f;
+        if(v > 1.0f)
+            v = 1.0f;
+        return static_cast<int>(v * 1000.0f + 0.5f);
+    };
+
+    while(true)
+    {
+        // Pot order: ratio, ramp, mix, threshold, saturation, cutoff,
+        //            attack, release, output, width
+        int p_ratio  = ReadPotPermille(kRatioPot);
+        int p_ramp   = ReadPotPermille(kUnusedPot);
+        int p_mix    = ReadPotPermille(kMixPot);
+        int p_thresh = ReadPotPermille(kThresholdPot);
+        int p_sat    = ReadPotPermille(kDrivePot);
+        int p_cutoff = ReadPotPermille(kFilterCutoffPot);
+        int p_attack = ReadPotPermille(kAttackPot);
+        int p_rel    = ReadPotPermille(kReleasePot);
+        int p_output = ReadPotPermille(kOutputPot);
+        int p_width  = ReadPotPermille(kWidthPot);
+
+        // Buttons (all active-LOW with pull-ups)
+        int b_footsw  = !dsy_gpio_read(&footswitch) ? 1 : 0;
+        int b_rampbtn = !dsy_gpio_read(&unused_button) ? 1 : 0;
+        int b_clrsw   = !dsy_gpio_read(&clear_sw) ? 1 : 0;
+
+        // Mirror button states onto the 3 LEDs for visual feedback
+        dsy_gpio_write(&led_footswitch, b_footsw);
+        dsy_gpio_write(&unused_button_led, b_rampbtn);
+        dsy_gpio_write(&led, b_clrsw);
+
+        // 3-position switches
+        bool        f1       = !dsy_gpio_read(&filter_sw1);
+        bool        f2       = !dsy_gpio_read(&filter_sw2);
+        const char *filt_str = (f1 && f2)    ? "ERR"
+                               : (f1 && !f2) ? "LPF"
+                               : (!f1 && f2) ? "HPF"
+                                             : "BPF";
+
+        bool        s1      = !dsy_gpio_read(&sw_sat1);
+        bool        s2      = !dsy_gpio_read(&sw_sat2);
+        const char *sat_str = (s1 && s2)    ? "ERR"
+                              : (s1 && !s2) ? "Soft"
+                              : (!s1 && s2) ? "Ducker"
+                                            : "Fold";
+
+        hw.PrintLine("TK P %d %d %d %d %d %d %d %d %d %d B %d %d %d S %s %s",
+                     p_ratio,
+                     p_ramp,
+                     p_mix,
+                     p_thresh,
+                     p_sat,
+                     p_cutoff,
+                     p_attack,
+                     p_rel,
+                     p_output,
+                     p_width,
+                     b_footsw,
+                     b_rampbtn,
+                     b_clrsw,
+                     filt_str,
+                     sat_str);
+
+        hw.DelayMs(50);
+    }
+#endif // TEST_KNOBS_MODE
 
     // ── Start audio ──────────────────────────────────────────────────────────
     hw.StartAudio(AudioCallback);
